@@ -4,3 +4,5 @@ import './style.css'
 createApp(App).mount('#app')
 
 import './expansion.css'
+
+import './tutorial.css'

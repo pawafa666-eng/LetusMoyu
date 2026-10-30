@@ -1,6 +1,6 @@
 {
   "name": "letus-moyu",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,7 +8,7 @@
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.cjs",
-    "check:server": "node --check cloudfunctions/letusMoyu/index.js && node --check cloudfunctions/letusMoyu/game.cjs && node --check cloudfunctions/letusMoyu/research.cjs && node --check cloudfunctions/letusMoyuLogin/index.js"
+    "check:server": "node --check cloudfunctions/letusMoyu/index.js && node --check cloudfunctions/letusMoyu/game.cjs && node --check cloudfunctions/letusMoyu/research.cjs"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^3.10.4",

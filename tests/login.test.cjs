@@ -1,0 +1,5 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm'),{webcrypto,pbkdf2Sync}=require('node:crypto'),ts=require('typescript');
+const moduleSource=ts.transpileModule(fs.readFileSync('src/login.ts','utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
+const context={exports:{},crypto:webcrypto,TextEncoder,Uint8Array};vm.runInNewContext(moduleSource,context);
+test('浏览器 WebCrypto 与原生认证配置使用同一派生凭证',async()=>{const key={salt:'abababababababababababababababababababababababab',iterations:210000};const credential=await context.exports.deriveCredential('1357',key);assert.equal(credential,'M!7a'+pbkdf2Sync('1357',Buffer.from(key.salt,'hex'),key.iterations,16,'sha256').toString('hex').slice(0,20));assert.equal(credential.length,24);assert.notEqual(credential,await context.exports.deriveCredential('1357',{...key,salt:'cd'.repeat(24)}));});
+test('四位登录严格校验，不接受空白、长密码或非数字',async()=>{for(const pin of ['',1357,'135','13579',' 1357','1a57'])await assert.rejects(context.exports.deriveCredential(pin,{salt:'ab'.repeat(24),iterations:1}));});

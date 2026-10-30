@@ -51,12 +51,18 @@ v0.2 的数值与迁移方案见 [UPGRADE-v0.2.md](UPGRADE-v0.2.md)。默认现�
 
 完整设定、30 个地图格、全部事件和卡牌见 [DESIGN.md](DESIGN.md)。设计稿原先列出的 PostgreSQL 为通用建议；实际第一版复用已有的 CloudBase NoSQL 环境，实际配置以本文及源码为准。
 
+## 动画新手教程与胜利
+
+登录页点“先玩一遍动画教程”，登录后点右上角“新手教程”。首次登录会自动打开一次。七节可交互演练涵盖掷骰、项目收益、论文与专利、异步卡牌、邮箱、学生和实验室；支持跳章、关闭和再次打开，演练不调用正式游戏操作接口，不修改正式资源。文字版见 [GUIDE.md](GUIDE.md)。
+
+双方共同将联合实验室升到五级“未来城市科研中心”，即共同通关。正式界面显示联合胜利横幅，之后仍可继续经营和互动。五级累计需要 6000 经费、5 成果点、50 登记声望，首次升级还需两人各投入至少 100 经费。
+
 ## 技术结构
 
 - 前端：Vue 3、TypeScript、Vite、Lucide SVG 图标、Three.js 程序生成的低多边形校园。WebGL 不可用时自动使用 SVG / 2D 轻量地图。
-- 认证：CloudBase Web SDK、getSession 会话校验。原有长密码登录兼容保留；四位游戏登录码的服务端入口见下文。
+- 认证：CloudBase Web SDK、getSession 会话校验。游戏四位码经每账号独立随机盐和 PBKDF2-SHA256（210000 次）转换成 24 字符的原生登录凭证；原生认证身份与白名单继续生效，不需要密码中转服务。
 - 权威规则：Node.js 20 事件云函数 letusMoyu。只允许管理员预置的两个 UID。
-- 存储：五个独立的文档数据库集合，浏览器直接访问全部关闭，写操作经云函数事务完成。
+- 存储：四个业务文档数据库集合，浏览器直接访问全部关闭，写操作经云函数事务完成。
 
 | 集合 | 数据 |
 |---|---|
@@ -64,9 +70,7 @@ v0.2 的数值与迁移方案见 [UPGRADE-v0.2.md](UPGRADE-v0.2.md)。默认现�
 | letus_moyu_members | 认证 UID 与园区关联；一个账号仅属于一个园区 |
 | letus_moyu_receipts | 请求 UUID 的哈希、操作者、动作和提交时间，防止重复执行 |
 | letus_moyu_snapshots | 最近写操作的轮转恢复快照 |
-| letus_moyu_login_limits | 四位登录码的哈希账户/IP限流计数；不保存原始 IP 或输入的登录码 |
-
-四位码方案：letusMoyuLogin 仅在服务端校验盐化 scrypt 哈希；验证成功后获取原 UID 对应的原生认证会话，浏览器通过 auth.setSession 持有它。平台原生密码继续使用长随机值，既有云存档身份不变。服务器环境变量 GAME_LOGIN_CONFIG 和原生密码配置不得提交 GitHub，也不得加入前端环境变量。部署该函数并验证后，将 src/cloudbase.config.json 的 pinLoginReady 设置为 true；未就绪时，界面继续提供原账号密码登录，不会把用户锁在园区外。每账号/IP十五分钟最多五次、每账号最多十二次尝试。
+源码只保存每账号公开盐与迭代次数，不保存四位码或原生派生凭证。更改四位码时，需要同步更新该 UID 的原生凭证；不能只改前端校验。新增登录函数的原方案因工具拒绝创建而弃用，未部署该函数；此前建立的空限流集合不参与现有认证。登录仍直接交给原生认证服务处理，会话由官方 SDK 管理。
 
 完整状态序列化保存，规则集中在纯函数模块中，适合双人小规模游戏。原始状态只在服务端使用；响应移除另一人的手牌、收件箱、招生候选册和隐藏随机结果。
 
@@ -100,7 +104,7 @@ npm run check:server
 
 正式账号密码、服务端 API Key、腾讯云 SecretKey 都不能提交 GitHub。两个初始游戏账号的密码单独交付给园区主人，不在本仓库中。
 
-CloudBase 本地调用还需要实际 localhost:端口列入环境安全域名。当前体验版不允许新增这类域名，因此可在支持的已部署应用域名联调；不要为此关闭身份验证或把余额改到本地。
+本次已从本地前端通过官方 SDK 实际连接云端，完成两个新账号的登录和读取。OAuth 跳转等登录方式仍须按平台要求配置安全域名；不要为联调关闭身份验证或把正式余额改到本地。开发时可打开 /?preview=1 使用独立演示园区，生产构建不提供该演示 API。
 
 后端依赖：
 
@@ -115,7 +119,13 @@ node scripts/sync-content.mjs
 npm run build
 ~~~
 
-真实接口联调需要本机私有账号 JSON（仅含 username、password），不要放在仓库里：
+真实接口联调需要本机私有账号 JSON（仅含 username、password），不要放在仓库里。当前四位游戏码使用：
+
+~~~sh
+node scripts/verify-upgrade.mjs /absolute/path/to/private-game-codes.json --pin
+~~~
+
+这条命令先派生原生凭证，再登录、读取和校验原双人园区，不移动或消费。下面的旧脚本用于直接提供原生凭证的低层联调：
 
 ~~~sh
 node scripts/smoke-cloud.mjs /absolute/path/to/private-accounts.json
@@ -135,10 +145,12 @@ node scripts/smoke-cloud.mjs /absolute/path/to/private-accounts.json --exercise
 
 首次部署通过 CloudBase 应用服务部署前端（服务 letus-moyu，独立应用域名），后端部署事件函数 letusMoyu。不要覆盖现有环境里其他应用的函数、集合或站点根文件。
 
+当前前端发布方式：本地 npm run build 后，以 dist 为 filePath，framework=static、buildPath=.、installCmd 与 buildCmd 均为空，复用原 serviceName 发布。避免远端管道在尚未生成的 dist 里执行安装。发布后用 scripts/verify-release.mjs 核对线上入口、资源哈希和开发接口未打包。
+
 使用环境已有额度，不自动购买套餐或开启续费。创建时查询到体验版到期时间为 2027-02-02 23:59:59；这是一次查询结果，以控制台为准。到期前需要管理员自行处理续期或迁移，不能承诺永久免费。
 
 ## 验证边界
 
 规则测试与 TypeScript 构建应在每次改动后运行。接口联调和浏览器交互是不同层：接口通过不代表所有手机浏览器和网页交互已经验证。
 
-当前浏览器自动测试受到本机自动化安全检查限制；本地登录页已做视觉检查，完整网页双账号联调需要后续补测。服务端测试与线上核对结果记录在 VALIDATION.md。
+当前已在本地前端真实连接云端，完成两名玩家的新用户名和四位码登录，并在独立演示园区完成 3D、邮件、培养和七节动画教程的浏览器操作。线上域名的自动浏览器读取会超时，未将接口和本地浏览器验证冒充完整生产域名网页回归。记录见 VALIDATION-v0.3.md，旧版记录保留在 VALIDATION.md 和 VALIDATION-v0.2.md。

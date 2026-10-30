@@ -1,6 +1,7 @@
 export interface Paper {phase:'draft'|'review'|'major'|'minor';progress:number;bank:number;reviewAt:number;round:number;required:number}
 export interface Encounter {type:string;event?:number;project?:number;dice?:number;bus?:boolean;expires:number}
 export interface Motion {id:string;from:number;to:number;dice:number;steps:number;pendingRoute:boolean;at:number;kind:'walk'|'teleport'}
+export interface CampusDisplay {version:number;self:string;lab:{level:number};players:Record<string,{id:string;discipline:'civil'|'air';position:number;lastMove?:Motion}>;projects:Record<string,{owner:string}>}
 export interface Mail {id:string;template:string;receivedAt:number;readAt:number;repliedAt:number;choice:number|null;result:string}
 export interface Student {id:string;name:string;degree:'masters'|'phds';topic:string;trait:string;progress:number;target:number;wellbeing:number;lastCareAt:number;graduatedAt:number;studyBuffer:number}
 export interface Candidate {id:string;name:string;degree:'masters'|'phds';topic:string;trait:string;hired:boolean}

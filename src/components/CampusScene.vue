@@ -4,9 +4,9 @@ import * as T from 'three'
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js'
 import {box,colors,makeTileAsset,makeCenter,makeDrone,makeScholar,tilePosition} from '../three/models'
 import type {Scholar} from '../three/models'
-import type {RoomState,Motion} from '../types'
+import type {CampusDisplay,Motion} from '../types'
 import content from '../content.json'
-const props=defineProps<{state:RoomState}>()
+const props=defineProps<{state:CampusDisplay;paused?:boolean}>()
 const emit=defineEmits<{select:[index:number];unavailable:[]}>()
 const host=ref<HTMLDivElement>(),canvas=ref<HTMLCanvasElement>()
 const labels=ref<{x:number;y:number;name:string}[]>([])
@@ -40,7 +40,7 @@ function playMove(motion:Motion,id=props.state.self):Promise<void>{
 function draw(time:number){
  if(dead)return
  frame=requestAnimationFrame(draw)
- if(document.hidden||time-last<32)return;last=time
+ if(document.hidden||props.paused||time-last<32)return;last=time
  for(const [id,walk] of walks){
   const actor=pawns.get(id)!,m=walk.motion,steps=m.kind==='teleport'?1:Math.max(1,m.steps),t=Math.min(steps,(time-walk.start)/180),step=Math.min(steps-1,Math.floor(t)),fraction=t-step
   const from=m.kind==='teleport'?m.from:(m.from+step)%30,to=m.kind==='teleport'?m.to:(m.from+step+1)%30
