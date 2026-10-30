@@ -1,14 +1,16 @@
 {
   "name": "letus-moyu",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vue-tsc --noEmit && vite build",
+    "build:mailroom": "vue-tsc --noEmit && vite build --config vite.mailroom.config.ts && node scripts/prepare-mailroom.mjs",
+    "dev:mailroom": "vite --config vite.mailroom.config.ts",
     "preview": "vite preview --host 0.0.0.0",
     "test": "node --test tests/*.test.cjs",
-    "check:server": "node --check cloudfunctions/letusMoyu/index.js && node --check cloudfunctions/letusMoyu/game.cjs && node --check cloudfunctions/letusMoyu/research.cjs"
+    "check:server": "node --check cloudfunctions/letusMoyu/index.js && node --check cloudfunctions/letusMoyu/game.cjs && node --check cloudfunctions/letusMoyu/research.cjs && node --check cloudfunctions/letusMoyu/portfolio.cjs && node --check cloudfunctions/letusMoyu/correspondence.cjs && node --check cloudfunctions/letusMoyu/mail-content.cjs"
   },
   "dependencies": {
     "@cloudbase/js-sdk": "^3.10.4",

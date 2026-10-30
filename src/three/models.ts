@@ -1,5 +1,5 @@
 import * as T from 'three'
-export const colors={grass:0xdfe8cc,path:0xf1e7cb,cream:0xf2e3bd,green:0x739782,blue:0x7dabb9,orange:0xc98361,dark:0x50695d,glass:0x91c6cf}
+export const colors={grass:0xe5e7de,path:0xf1e7d0,cream:0xf2e3bd,green:0x829ca5,blue:0x7dabb9,orange:0xc98361,dark:0x586974,glass:0x91c6cf}
 export function box(parent:T.Object3D,w:number,h:number,d:number,x:number,y:number,z:number,color:number){
  const mesh=new T.Mesh(new T.BoxGeometry(w,h,d),new T.MeshLambertMaterial({color}));mesh.position.set(x,y,z);parent.add(mesh);return mesh
 }

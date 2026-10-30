@@ -1,0 +1,9 @@
+<script setup lang="ts">
+import {computed} from 'vue'
+const props=withDefaults(defineProps<{seed:string;size?:number;label?:string}>(),{size:52,label:'研究生头像'})
+const hash=computed(()=>Array.from(props.seed).reduce((v,c)=>(v*31+c.charCodeAt(0))>>>0,7))
+const palette=[{bg:'#e7ddef',shirt:'#8c75a6',hair:'#4d4051'},{bg:'#dce8f3',shirt:'#6b91b6',hair:'#4c4b59'},{bg:'#f2ded2',shirt:'#c08269',hair:'#6b514b'},{bg:'#f4e7c7',shirt:'#b99b5b',hair:'#5a4d3b'},{bg:'#e8dfe8',shirt:'#9a7d8c',hair:'#51424e'},{bg:'#d9e8eb',shirt:'#6b9ba6',hair:'#485c61'}]
+const p=computed(()=>palette[hash.value%palette.length]!)
+const glasses=computed(()=>hash.value%3===0),style=computed(()=>hash.value%3)
+</script>
+<template><svg :width="size" :height="size" viewBox="0 0 80 80" role="img" :aria-label="label" class="scholar-portrait"><rect x="0" y="0" width="80" height="80" rx="22" :fill="p.bg"/><path d="M11 80v-8c0-15 12-23 29-23s29 8 29 23v8" :fill="p.shirt"/><path d="m31 51 9 11 9-11" fill="#fff8ed"/><rect x="34" y="45" width="12" height="13" rx="5" fill="#e9bb9b"/><ellipse cx="40" cy="33" rx="19" ry="23" fill="#f0ccb0"/><path v-if="style===0" d="M21 34c-4-24 10-29 21-27 16 0 22 12 18 29l-6-18-12 4-12-4-5 16" :fill="p.hair"/><path v-else-if="style===1" d="M20 39c-5-25 7-33 20-33s27 11 21 37l-6-20c-10 2-17-5-20-7L25 32v10" :fill="p.hair"/><path v-else d="M22 35c-6-16 5-28 19-28 16 0 25 16 18 30l-7-18c-10 8-19 7-25 5l-2 13" :fill="p.hair"/><g fill="#5e5151"><circle cx="33" cy="34" r="1.6"/><circle cx="47" cy="34" r="1.6"/></g><path d="M36 43q4 3 8 0" fill="none" stroke="#bd8c7a" stroke-width="1.4" stroke-linecap="round"/><g v-if="glasses" fill="none" stroke="#65566b" stroke-width="1.8"><rect x="25" y="29" width="13" height="10" rx="4"/><rect x="42" y="29" width="13" height="10" rx="4"/><path d="M38 33h4"/></g><path d="m40 62-5 18h10z" fill="#fff7e7" opacity=".65"/><path d="M19 72h9" stroke="#fff8ed" stroke-width="2" stroke-linecap="round" opacity=".6"/></svg></template>

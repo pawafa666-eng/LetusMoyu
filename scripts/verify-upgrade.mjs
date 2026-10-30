@@ -13,8 +13,8 @@ for(const [i,a] of accounts.entries()){
  assert.equal(typeof session?.access_token,'string');
  const data=await post('/v1/functions/letusMoyu',session.access_token,{action:'state',payload:{},requestId:randomUUID()});
  assert.equal(data.ok,true,data.error);const s=data.state,p=s.players[s.self],other=Object.values(s.players).find(x=>x.id!==s.self);
- assert.equal(s.self,ids[i]);assert.equal(s.id,'62D133EFFA');assert.equal(s.rulesVersion,2);
+ assert.equal(s.self,ids[i]);assert.equal(s.id,'62D133EFFA');assert.equal(s.rulesVersion,4);
  assert.ok(Array.isArray(p.inbox));assert.ok(Array.isArray(p.admissions.candidates));assert.equal(p.patent.total>=0,true);assert.equal(other.inbox,undefined);assert.equal(other.admissions.candidates,undefined);assert.equal(other.hand,undefined);
- console.log('PASS',a.username,'original identity + room preserved; v2 inbox, students and patent ready; partner private data hidden.');
+ console.log('PASS',a.username,'original identity + room preserved; v4 inbox, portfolio, students and patent ready; partner private data hidden.');
  console.log('Snapshot',{version:s.version,position:p.position,actionCount:p.actionCount,projects:Object.keys(s.projects).length,pending:p.pending?.type||null,year:s.academicYearDays});
 }

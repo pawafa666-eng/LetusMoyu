@@ -9,7 +9,7 @@ const dialog=ref<HTMLDialogElement>()
 const pending=computed(()=>props.player.pending!)
 const project=computed(()=>content.projects[pending.value.project??0])
 const event=computed(()=>content.events[pending.value.event??0])
-const cost=computed(()=>Math.round(project.value.cost*(props.player.discipline==='civil'&&project.value.domain==='civil'?.9:1)))
+const cost=computed(()=>project.value.kind==='contract'?0:Math.round(project.value.cost*(props.player.discipline==='civil'&&project.value.domain==='civil'?.9:1)))
 const title=computed(()=>({project:'这项课题，要不要接下来？',equipment:'设备比人先到位',route:'今天，换条科研路线',library:'文献看不完，先看一点',coffee:'咖啡与科研的有效碰撞'}[pending.value.type]||event.value.title))
 const routes=computed(()=>pending.value.bus?[1,2,3,4,5,6]:[...new Set([pending.value.dice??1,Math.min(6,(pending.value.dice??1)+1)])])
 function maxCost(delta:unknown):number{
@@ -28,8 +28,8 @@ onBeforeUnmount(()=>dialog.value?.close())
   <div class="event-choices">
    <template v-if="pending.type==='event'"><button v-for="(c,i) in event.choices" :key="i" :disabled="busy||player.funds<maxCost(c.delta)" :title="player.funds<maxCost(c.delta)?'需预留 '+maxCost(c.delta)+' 经费':''" @click="emit('choose',String(i))"><b>{{ i===0?'A':'B' }}</b><span>{{ c.text }}</span><ArrowRight :size="17"/></button></template>
    <template v-else-if="pending.type==='project'">
-    <div class="project-offer"><span>{{ {civil:'智能建造',air:'低空经济',cross:'交叉研究'}[project.domain] }}</span><h3>{{ project.name }}</h3><p>基础产出 {{ project.income }} 经费 / 2 小时{{ project.progress?'，另有 1 论文进度':'' }}。你退出以后，它还会继续工作。</p></div>
-    <button :disabled="busy||player.funds<cost||Object.values(state.projects).filter(p=>p.owner===player.id).length>=3||!!state.projects[project.id]" @click="emit('choose','buy')"><b>A</b><span>承接课题 · {{ cost }} 经费</span><ArrowRight :size="17"/></button>
+    <div class="project-offer"><span>{{ {civil:'智能建造',air:'低空经济',cross:'交叉研究'}[project.domain] }}</span><h3>{{ project.name }}</h3><p>{{ project.kind==='contract'?'横向总经费 '+project.totalFunding+'，分阶段到账':'建设后提供长期共享服务' }}。基础阶段收入 {{ project.income }} 经费 / 2 小时{{ project.progress?'，另有 1 论文进度':'' }}。你退出以后，它还会继续工作。</p></div>
+    <button :disabled="busy||player.funds<cost||Object.values(state.projects).filter(p=>p.owner===player.id&&!p.completedAt).length>=3||!!state.projects[project.id]" @click="emit('choose','buy')"><b>A</b><span>{{ project.kind==='contract'?'签订横向合同 · 首款 +'+project.advance+' 经费':'建设设施 · 投入 '+cost+' 经费' }}</span><ArrowRight :size="17"/></button>
     <button :disabled="busy" @click="emit('choose','skip')"><b>B</b><span>先留个研究思路 · 论文进度 +4</span><ArrowRight :size="17"/></button>
    </template>
    <template v-else-if="pending.type==='equipment'">

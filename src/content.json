@@ -191,7 +191,10 @@
       "progress": 0,
       "equipment": [
         "lidar"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 300,
+      "totalFunding": 1500
     },
     {
       "id": 1,
@@ -202,7 +205,10 @@
       "progress": 1,
       "equipment": [
         "lidar"
-      ]
+      ],
+      "kind": "facility",
+      "advance": 0,
+      "totalFunding": 0
     },
     {
       "id": 2,
@@ -214,7 +220,10 @@
       "equipment": [
         "drone",
         "lidar"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 360,
+      "totalFunding": 1800
     },
     {
       "id": 3,
@@ -225,7 +234,10 @@
       "progress": 0,
       "equipment": [
         "drone"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 420,
+      "totalFunding": 2100
     },
     {
       "id": 4,
@@ -236,7 +248,10 @@
       "progress": 0,
       "equipment": [
         "sensor"
-      ]
+      ],
+      "kind": "facility",
+      "advance": 0,
+      "totalFunding": 0
     },
     {
       "id": 5,
@@ -247,7 +262,10 @@
       "progress": 0,
       "equipment": [
         "sensor"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 400,
+      "totalFunding": 2000
     },
     {
       "id": 6,
@@ -258,7 +276,10 @@
       "progress": 0,
       "equipment": [
         "drone"
-      ]
+      ],
+      "kind": "facility",
+      "advance": 0,
+      "totalFunding": 0
     },
     {
       "id": 7,
@@ -269,7 +290,10 @@
       "progress": 1,
       "equipment": [
         "lidar"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 360,
+      "totalFunding": 1800
     },
     {
       "id": 8,
@@ -280,7 +304,10 @@
       "progress": 0,
       "equipment": [
         "drone"
-      ]
+      ],
+      "kind": "facility",
+      "advance": 0,
+      "totalFunding": 0
     },
     {
       "id": 9,
@@ -292,7 +319,10 @@
       "equipment": [
         "sensor",
         "drone"
-      ]
+      ],
+      "kind": "contract",
+      "advance": 480,
+      "totalFunding": 2400
     }
   ],
   "equipment": [
@@ -1246,25 +1276,22 @@
     "mailTemplates": [
       {
         "id": "welcome",
-        "sender": "园区信使",
+        "sender": "园区邮政服务",
         "address": "post@buji.example",
-        "subject": "你的课题组邮箱，今天开始营业",
-        "body": "合作、好消息和偶尔的离谱会务广告，会慢慢来到这里。不必急着回，忙完科研再看也可以。",
+        "subject": "课题组邮箱开通通知",
+        "body": "老师您好：\n\n您的不急大学课题组邮箱已开通，可接收园区通知、学术邀请，也可给通讯录中的同事和服务部门发信。\n\n如需咨询，请直接回复本邮件。\n\n不急大学园区邮政服务",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "给信使回一个收到 · 心情 +5",
-            "delta": {
-              "m": 5
-            }
+            "text": "回复：收到，谢谢",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "和搭子分享新邮箱 · 双方心情 +3",
-            "delta": {
-              "m": 3,
-              "other": {
-                "m": 3
-              }
-            }
+            "text": "和搭子分享新邮箱",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1272,141 +1299,119 @@
         "id": "bridge",
         "sender": "周工 · 城市试验场",
         "address": "bridge@city-lab.example",
-        "subject": "桥梁巡检能不能来一次空地联动？",
-        "body": "我们有桥梁监测数据，你们有空中与地面采集能力。把坐标系先说清楚，应该能做点有趣的合作。",
+        "subject": "桥梁巡检联合测试邀请",
+        "body": "老师您好：\n\n我们正在筹备桥梁巡检试验，拟结合地面点云、无人机影像与结构传感数据开展空地联合采集。贵组如有兴趣，可交换样例数据或承接一次短期测试。\n\n期待您的回复。\n周工",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "交换样例数据 · 双方进度 +8",
-            "delta": {
-              "p": 8,
-              "other": {
-                "p": 8
-              }
-            }
+            "text": "交换样例数据",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "接一次短期测试 · 经费 +60，进度 +4",
-            "delta": {
-              "f": 60,
-              "p": 4
-            }
+            "text": "承接短期测试",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "本周先歇歇 · 心情 +5",
-            "delta": {
-              "m": 5
-            }
+            "text": "本周暂不参加",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "paper-reader",
-        "sender": "小许 · 联合研究中心",
+        "sender": "许老师 · 联合研究中心",
         "address": "reader@joint-lab.example",
-        "subject": "读了你们的文章，想聊聊三维重建",
-        "body": "文章里那个数据处理思路很有意思。我们手头刚好有一组低空遥感和城市结构数据，想约一次很短的线上交流。",
-        "minPapers": 1,
+        "subject": "关于贵组已发表研究的合作咨询",
+        "body": "老师您好：\n\n拜读了贵组关于三维重建与城市感知的文章。我们现有一组低空遥感及城市结构数据，希望交流处理方法，探讨联合实验的可能。方便的话，可安排一次线上讨论。\n\n祝好！\n许老师",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "共享处理流程 · 双方进度 +10",
-            "delta": {
-              "p": 10,
-              "other": {
-                "p": 10
-              }
-            }
+            "text": "共享处理流程",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "做个十分钟报告 · 声望 +2，专利灵感 +5",
-            "delta": {
-              "r": 2,
-              "idea": 5
-            }
+            "text": "做一个简短报告",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "礼貌约到下次 · 心情 +4",
-            "delta": {
-              "m": 4
-            }
+            "text": "约到下次交流",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "special-issue",
-        "sender": "三天见刊编辑部",
-        "address": "too-fast@not-a-journal.example",
-        "subject": "尊敬的杰出学者：三天接收，保证不问实验",
-        "body": "这封邮件把你的姓名写错了三次，期刊名里还有一个多余的感叹号。它看起来比你的实验结果更不靠谱。",
+        "sender": "快速成果交流编辑部",
+        "address": "editor@fast-results.example",
+        "subject": "专题征稿邀请：快速通道开放",
+        "body": "尊敬的老师：\n\n本刊“未来城市与交叉创新”专题即日起接收稿件。快速通道可优先排期，资料处理费为 20 元气经费。请回复是否参加。\n\n成果交流编辑部",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "扔进虚构垃圾桶 · 心情 +5",
-            "delta": {
-              "m": 5
-            }
+            "text": "提交资料并参加",
+            "cost": 20,
+            "assignVisit": false
           },
           {
-            "text": "当作识别案例分享 · 双方声望 +1",
-            "delta": {
-              "r": 1,
-              "other": {
-                "r": 1
-              }
-            }
+            "text": "婉拒本次征稿",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "invoice",
-        "sender": "报销服务窗口",
+        "sender": "不急大学财务处",
         "address": "finance@buji.example",
-        "subject": "你的附件终于全部齐了",
-        "body": "三张发票、两份截图和一个找不到的审批人，终于在同一个文件夹相遇了。",
+        "subject": "实验测试费用报销审核通过",
+        "body": "老师您好：\n\n贵组提交的实验测试费用已审核通过。本次可报销 70 元气经费，请确认领取方式。若需后续报销，请在通讯录中给财务处发信并说明用途。\n\n财务处",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "按清单提交 · 经费 +70",
-            "delta": {
-              "f": 70
-            }
+            "text": "确认领取报销款",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "顺手帮搭子整理 · 自己 +30 经费，搭子 +6 进度",
-            "delta": {
-              "f": 30,
-              "other": {
-                "p": 6
-              }
-            }
+            "text": "领取部分并协助搭子整理材料",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "student",
-        "sender": "小林 · 意向学生",
-        "address": "student@admissions.example",
-        "subject": "老师，我想做一点机器人或无人机的研究",
-        "body": "我对实验感兴趣，也愿意从整理数据做起。听说你们的组会不会开到凌晨，想了解一下课题组。",
+        "sender": "小林 · 不急大学学生",
+        "address": "student@buji.example",
+        "subject": "咨询贵组研究方向与招生安排",
+        "body": "老师您好：\n\n我对机器人、无人机和城市感知研究很感兴趣，希望了解贵组的培养方向、课题安排和招生计划。我愿意从文献阅读和数据整理做起。\n\n谢谢老师！\n小林",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "认真介绍方向 · 心情 +4，进度 +5",
-            "delta": {
-              "m": 4,
-              "p": 5
-            }
+            "text": "介绍本组研究方向",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "推荐搭子的交叉课题 · 双方进度 +5",
-            "delta": {
-              "p": 5,
-              "other": {
-                "p": 5
-              }
-            }
+            "text": "介绍双方的交叉研究",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "告诉 TA 先看看招生册 · 声望 +1",
-            "delta": {
-              "r": 1
-            }
+            "text": "请对方查看招生小册",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1414,47 +1419,41 @@
         "id": "equipment",
         "sender": "仪器共享平台",
         "address": "equipment@buji.example",
-        "subject": "有一张设备报销券，别忘在打印机旁边",
-        "body": "经过核对，这次真的是报销券，不是上次那张过期的食堂优惠券。去仪器共享站时可以用上。",
+        "subject": "设备共享报销券领取通知",
+        "body": "老师您好：\n\n贵组本期有一张设备共享报销券可领取。领取后可在仪器共享站选购设备时使用。如暂时不需要，可转入园区共享支持计划。\n\n仪器共享平台",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "收下报销券 · 获得一张设备报销卡",
-            "delta": {
-              "card": 11
-            }
+            "text": "领取报销券",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "先留给更需要的人 · 双方心情 +5",
-            "delta": {
-              "m": 5,
-              "other": {
-                "m": 5
-              }
-            }
+            "text": "转入共享支持计划",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "maintenance",
-        "sender": "服务器管理员",
+        "sender": "服务器管理中心",
         "address": "gpu@buji.example",
-        "subject": "今晚维护，GPU 也想下班",
-        "body": "模型训练暂时排不开，不过已有的数据还可以整理。管理员友情提醒：关网页不会关掉你的科研项目。",
+        "subject": "服务器维护与替代研究安排",
+        "body": "各课题组老师：\n\n本周服务器将进行例行维护。建议提前备份训练配置，并在维护期间安排数据整理或方法讨论。需要协调时段可直接回信。\n\n服务器管理中心",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "改做数据整理 · 进度 +10",
-            "delta": {
-              "p": 10
-            }
+            "text": "安排数据整理",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "把空闲时段留给搭子 · 双方进度 +6",
-            "delta": {
-              "p": 6,
-              "other": {
-                "p": 6
-              }
-            }
+            "text": "和搭子协调空闲时段",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1462,76 +1461,67 @@
         "id": "mentor-photo",
         "sender": "导师办公室",
         "address": "advisor@buji.example",
-        "subject": "帮我找一下那张……就是那张图",
-        "body": "没有文件名，没有日期，只有一句“你知道是哪张”。这次的任务可能需要一点文件整理能力。",
+        "subject": "请提供上次组会使用的结果图",
+        "body": "同学你好：\n\n请把上次组会汇报中展示的结果图发我一份，附上原始文件和数据版本说明。若有多个版本，请先列出目录。\n\n导师办公室",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "整理文件并发图 · 好感 +5，进度 +6",
-            "delta": {
-              "t": 5,
-              "p": 6
-            }
+            "text": "整理原始文件并发送",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "先问清具体版本 · 进度 +5，心情 +3",
-            "delta": {
-              "p": 5,
-              "m": 3
-            }
+            "text": "先确认图号和版本",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "review",
-        "sender": "认真但不着急的编辑",
-        "address": "review@fictional-journal.example",
-        "subject": "想邀请你看看一篇交叉研究",
-        "body": "这次的审稿邀请写明了研究范围，也明确可以拒绝。你可以学一点新方法，也可以先照顾自己的节奏。",
-        "minRep": 5,
+        "sender": "《空地协同研究通讯》编辑部",
+        "address": "review@journal.example",
+        "subject": "交叉研究审稿邀请",
+        "body": "老师您好：\n\n现有一篇城市感知与空地协同方向稿件拟送外审，诚邀您评阅。若不便接受，请直接谢绝；我们会另邀审稿人。\n\n编辑部",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "读方法并写建议 · 声望 +2，进度 +5",
-            "delta": {
-              "r": 2,
-              "p": 5
-            }
+            "text": "接受邀请并阅读方法",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "礼貌谢绝 · 心情 +6",
-            "delta": {
-              "m": 6
-            }
+            "text": "谢绝本次邀请",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "patent-transfer",
-        "sender": "技术转化小站",
+        "sender": "不急大学技术转化中心",
         "address": "ip@buji.example",
-        "subject": "有人对你的已授权技术感兴趣",
-        "body": "对方想把你们的技术方案用在小型示范场景里。先做一次演示合作，合同里的逗号以后再认真核对。",
-        "minPatents": 1,
+        "subject": "已授权技术的示范应用咨询",
+        "body": "老师您好：\n\n有合作单位希望将贵组已授权技术应用于一个小型示范场景。可先安排技术演示，或联合另一个课题组开展验证。\n\n技术转化中心",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "做一次技术演示 · 经费 +120",
-            "delta": {
-              "f": 120
-            }
+            "text": "安排技术演示",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "和搭子共同验证 · 双方经费 +60",
-            "delta": {
-              "f": 60,
-              "other": {
-                "f": 60
-              }
-            }
+            "text": "和搭子联合验证",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "继续优化方案 · 专利灵感 +12",
-            "delta": {
-              "idea": 12
-            }
+            "text": "先完善技术方案",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1539,24 +1529,20 @@
         "id": "air-logistics",
         "sender": "低空物流测试站",
         "address": "air@city-lab.example",
-        "subject": "今天送的是传感器，奶茶只是顺路",
-        "body": "一条新航线把实验场和桥梁试验区连了起来。想借你们的采集与通信经验，验证一下路线。",
+        "subject": "低空物流航线联合验证邀请",
+        "body": "老师您好：\n\n测试站拟验证一条连接实验场与桥梁试验区的低空物流航线，希望借助贵组的采集与通信经验开展联合试验。请告知是否有兴趣参加。\n\n低空物流测试站",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "安排联合试验 · 进度 +8，专利灵感 +5",
-            "delta": {
-              "p": 8,
-              "idea": 5
-            }
+            "text": "安排联合试验",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "交换测试数据 · 双方进度 +7",
-            "delta": {
-              "p": 7,
-              "other": {
-                "p": 7
-              }
-            }
+            "text": "交换已有测试数据",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1564,72 +1550,62 @@
         "id": "tunnel",
         "sender": "隧道试验基地",
         "address": "tunnel@city-lab.example",
-        "subject": "点云配准这次真的对上了",
-        "body": "隧道、机器人与低空采集的坐标，现在终于愿意坐到同一张桌子上。基地想把这套流程整理成技术说明。",
+        "subject": "多源采集流程技术说明编写邀请",
+        "body": "老师您好：\n\n本次隧道与机器人采集数据已完成配准。基地计划整理一份流程技术说明，邀请贵组补充实施细节或联合开展一次验证实验。\n\n隧道试验基地",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "整理技术交底 · 专利灵感 +12",
-            "delta": {
-              "idea": 12
-            }
+            "text": "整理技术交底",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "共同补一个实验 · 双方进度 +8",
-            "delta": {
-              "p": 8,
-              "other": {
-                "p": 8
-              }
-            }
+            "text": "和搭子补充验证实验",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "conference-spam",
-        "sender": "万能学术会务中心",
-        "address": "all-topics@conference.example",
-        "subject": "土木、低空、甜品与宇宙起源联合大会",
-        "body": "会议方向覆盖了一切，唯独没有写清会场。你怀疑这更像一封群发广告，而不是跨学科奇迹。",
+        "sender": "国际交叉创新大会组委会",
+        "address": "meetings@cross-research.example",
+        "subject": "邀请参加交叉创新学术交流会",
+        "body": "尊敬的老师：\n\n现诚邀贵组参加“土木、低空与城市创新交叉学术交流会”。会议设研究报告、技术交流及青年学者讨论环节。报名费为 10 元气经费，可由老师本人或一名组内学生参加。\n\n请回复是否参会。\n大会组委会",
+        "delegate": true,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "不必参加 · 心情 +6",
-            "delta": {
-              "m": 6
-            }
+            "text": "报名参加会议",
+            "cost": 10,
+            "assignVisit": false
           },
           {
-            "text": "把题目改成组会笑话 · 双方心情 +5",
-            "delta": {
-              "m": 5,
-              "other": {
-                "m": 5
-              }
-            }
+            "text": "不参加本次会议",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
       {
         "id": "students-care",
-        "sender": "研究生生活服务站",
+        "sender": "研究生培养办公室",
         "address": "care@buji.example",
-        "subject": "组会可以短一点，问候可以多一点",
-        "body": "这周有个小建议：与学生聊一聊最近顺不顺利。研究进度值得关心，他们的休息和心情也一样。",
+        "subject": "课题组交流安排建议",
+        "body": "各位老师：\n\n建议本周与组内同学交流近期研究计划、困难和休息安排。若需要调整任务，可在学生详情中更新培养规划。\n\n研究生培养办公室",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "给自己和学生安排休息 · 心情 +6，学生心情 +8",
-            "delta": {
-              "m": 6,
-              "studentMood": 8
-            }
+            "text": "安排一次近况交流",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "分享一次小困难 · 双方心情 +5",
-            "delta": {
-              "m": 5,
-              "other": {
-                "m": 5
-              }
-            }
+            "text": "和搭子讨论培养经验",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
       },
@@ -1637,32 +1613,130 @@
         "id": "open-data",
         "sender": "城市开放数据台",
         "address": "data@city-lab.example",
-        "subject": "一份坐标说明齐全的开放数据",
-        "body": "无人机航线、桥梁监测和地下空间模型都标好了说明。这么完整的数据，值得先备份再感动。",
+        "subject": "开放数据资料交付通知",
+        "body": "老师您好：\n\n附件资料包括无人机航线、桥梁监测与地下空间模型的样例说明，坐标和采集条件已注明。请确认接收，并告知是否用于联合课题。\n\n城市开放数据台",
+        "delegate": false,
+        "requiresStudent": false,
         "choices": [
           {
-            "text": "整理成论文素材 · 进度 +12",
-            "delta": {
-              "p": 12
-            }
+            "text": "整理为论文素材",
+            "cost": 0,
+            "assignVisit": false
           },
           {
-            "text": "留给联合课题 · 双方进度 +7，声望 +1",
-            "delta": {
-              "p": 7,
-              "r": 1,
-              "other": {
-                "p": 7
-              }
-            }
+            "text": "用于双方联合研究",
+            "cost": 0,
+            "assignVisit": false
           }
         ]
+      },
+      {
+        "id": "visiting",
+        "sender": "云杉理工大学国际合作处",
+        "address": "visiting@spruce.example",
+        "subject": "青年研究人员短期访学邀请",
+        "body": "老师您好：\n\n云杉理工大学城市智能系统研究室拟邀请贵组一名学生开展短期访学，主题为城市基础设施与低空协同感知。园区提供压缩时间的访学模拟，支持费为 120 元气经费。\n\n请回复是否安排学生参加。\n国际合作处",
+        "delegate": true,
+        "requiresStudent": true,
+        "choices": [
+          {
+            "text": "安排学生访学",
+            "cost": 120,
+            "assignVisit": true
+          },
+          {
+            "text": "暂不安排",
+            "cost": 0,
+            "assignVisit": false
+          }
+        ]
+      }
+    ],
+    "contacts": [
+      {
+        "id": "finance",
+        "name": "学校财务处",
+        "address": "finance@buji.example",
+        "role": "报销、到账与经费咨询",
+        "color": "sand"
+      },
+      {
+        "id": "patents",
+        "name": "专利中心",
+        "address": "ip@buji.example",
+        "role": "技术交底、授权与转化",
+        "color": "lavender"
+      },
+      {
+        "id": "editors",
+        "name": "期刊编辑部",
+        "address": "editor@journal.example",
+        "role": "投稿、返修与合作咨询",
+        "color": "blue"
+      },
+      {
+        "id": "conference",
+        "name": "学术交流中心",
+        "address": "meetings@buji.example",
+        "role": "会议、报告与学生交流",
+        "color": "coral"
+      },
+      {
+        "id": "international",
+        "name": "国际合作处",
+        "address": "visiting@buji.example",
+        "role": "访学与联合研究",
+        "color": "blue"
+      },
+      {
+        "id": "research",
+        "name": "科研项目办公室",
+        "address": "projects@buji.example",
+        "role": "横向合同与项目合作",
+        "color": "sand"
+      }
+    ],
+    "tasks": [
+      {
+        "id": "paper",
+        "name": "写一篇论文",
+        "description": "积累论文进度，完成后送审并记录标题与师生作者。",
+        "cost": 0,
+        "target": 100
+      },
+      {
+        "id": "patent",
+        "name": "写一项专利",
+        "description": "整理技术方案，授权后进入课题组专利档案。",
+        "cost": 0,
+        "target": 60
+      },
+      {
+        "id": "research",
+        "name": "完成一个研究小目标",
+        "description": "做一个可完成的小实验或数据分析。",
+        "cost": 0,
+        "target": 60
+      },
+      {
+        "id": "conference",
+        "name": "参加学术交流",
+        "description": "6 小时后形成学术经历和研究笔记。",
+        "cost": 30,
+        "hours": 6
+      },
+      {
+        "id": "visit",
+        "name": "安排境外访学",
+        "description": "前往虚构的云杉理工大学，12 小时后记入履历。",
+        "cost": 120,
+        "hours": 12
       }
     ],
     "benefits": [
       {
         "level": 1,
-        "text": "两张科研桌；每学年 2 硕 + 1 博；最多培养 4 人"
+        "text": "每学年 2 硕 + 1 博；最多培养 4 人"
       },
       {
         "level": 2,
@@ -1678,7 +1752,7 @@
       },
       {
         "level": 5,
-        "text": "培养上限 6；学生研究反馈额外进度 +1；未来城市落成纪念"
+        "text": "培养上限 6；学生研究反馈额外进度 +1"
       }
     ],
     "yearDays": 7,

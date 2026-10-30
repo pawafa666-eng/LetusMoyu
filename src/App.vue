@@ -8,9 +8,9 @@ import CampusArt from './components/CampusArt.vue'
 import CampusBoard from './components/WorldBoard.vue'
 import EncounterDialog from './components/EncounterDialog.vue'
 import DiceRoll from './components/DiceRoll.vue'
-import InboxPanel from './components/InboxPanel.vue'
-import StudentsPanel from './components/StudentsPanel.vue'
-import ResearchRewards from './components/ResearchRewards.vue'
+import InboxPanel from './components/MailboxPanel.vue'
+import StudentsPanel from './components/TeamPanel.vue'
+import ResearchHub from './components/ResearchHub.vue'
 import TutorialDialog from './components/TutorialDialog.vue'
 const board=ref<InstanceType<typeof CampusBoard>>(),dice=ref<InstanceType<typeof DiceRoll>>()
 const state=ref<RoomState|null>(null),loading=ref(true),signedIn=ref(false),busy=ref(false),online=ref(true),uid=ref('')
@@ -18,7 +18,7 @@ const username=ref(''),password=ref(''),name=ref(''),discipline=ref<'civil'|'air
 const error=ref(''),notice=ref(''),savedAt=ref(0),clock=ref(Date.now()),offset=ref(0)
 const tab=ref<'map'|'research'|'bag'|'lab'|'mail'|'students'>('map'),showEncounter=ref(true),copied=ref(false),showRules=ref(false)
 const navItems=[{id:'map' as const,name:'园区转转',short:'园区',icon:Map},{id:'research' as const,name:'我的科研',short:'科研',icon:BookOpen},{id:'mail' as const,name:'博士信箱',short:'信箱',icon:Mail},{id:'students' as const,name:'小课题组',short:'学生',icon:GraduationCap},{id:'bag' as const,name:'科研背包',short:'背包',icon:Backpack},{id:'lab' as const,name:'联合实验室',short:'共建',icon:FlaskConical}]
-const unread=computed(()=>me.value?.inbox?.filter(m=>!m.readAt&&!m.repliedAt).length||0)
+const unread=computed(()=>(me.value?.inbox?.filter(m=>!m.readAt&&!m.repliedAt).length||0)+(me.value?.threadSummaries?.filter(t=>t.unread).length||0))
 watch(tab,async()=>{await nextTick();if(window.innerWidth<=800)document.querySelector('.main-panel')?.scrollIntoView({block:'start',behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'})})
 const showTutorial=ref(false)
 function closeTutorial(){showTutorial.value=false;localStorage.setItem('letusMoyu.tutorial.v3','seen')}
@@ -86,6 +86,7 @@ async function act(action:string,payload:Record<string,unknown>={},reuseId?:stri
   }catch{notice.value='动作已保存，动画将在下次打开时恢复到正确位置。'}
   update(r);localStorage.removeItem(key)
   notice.value=r.replayed?'已确认上次操作成功，没有重复扣款。':action==='move'?'脚步到位，云端也记下了。':'已保存到云端，可以放心去忙了。'
+  return r
  }catch(e){error.value=e instanceof Error?e.message:'连接中断，请用原请求重试';online.value=navigator.onLine}
  finally{dice.value?.cancel();busy.value=false}
 }
@@ -152,13 +153,11 @@ onBeforeUnmount(()=>{clearInterval(pollTimer);clearInterval(clockTimer);document
      <template v-if="tab==='map'"><div class="panel-heading"><div><span class="eyebrow">A LITTLE BREAK, A LITTLE PROGRESS</span><h1>今天，去哪里摸鱼？</h1></div><span class="map-weather"><Leaf :size="17"/>适合科研，也适合散步</span></div><CampusBoard ref="board" :state="state" :paused="showTutorial"/>
       <div class="action-dock"><div class="dice-cube" :class="{rolling:busy}"><Dice5 :size="31" :stroke-width="1.7"/></div><div class="action-copy"><h3>{{ me.pending?'你还有一个小决定没做完':'实验放一放，出去转一圈。' }}</h3><p>{{ me.pending?'骰子和事件都已经存好了，接着选就行。':'消耗 1 点行动力，遇到一个地点、一件小事。' }}</p></div><button v-if="me.pending" class="primary" :disabled="busy||!online" @click="showEncounter=true">继续当前事件<ArrowRight :size="18"/></button><button v-else class="primary" :disabled="busy||!online||me.energy<1" @click="act('move')">{{ busy?'正在走进园区…':me.energy<1?'先歇一会儿':'出去转一圈' }}<ArrowRight :size="18"/></button></div><p class="gentle-footer"><Clock3 :size="13"/>玩一回就能走。项目会继续工作，搭子也会记得惦记你。</p>
      </template>
-     <template v-else-if="tab==='research'"><div class="panel-heading"><div><span class="eyebrow">SLOW SCIENCE IS STILL SCIENCE</span><h1>我的科研小摊</h1></div><BookOpen :size="30"/></div><ResearchRewards :player="me" :busy="busy" :now="clock" :lab-level="state.lab.level" @act="act"/><article class="paper-feature"><span class="small-label">手头的论文</span><h2>{{ paperLabel }}</h2><p>{{ me.paper.phase==='review'?'放心去忙。审稿期间获得的进度会进入下一篇灵感箱。':'从一点数据，到一张图，再到一篇论文。没有投稿期限。' }}</p><div class="paper-stages"><span v-for="s in ['采集','处理','实验','绘图','写作','投稿']" :key="s">{{ s }}</span></div><div class="progress-track"><i :style="{width:Math.min(100,me.paper.progress/paperTarget*100)+'%'}"/></div><div class="paper-summary"><span>{{ me.paper.progress }} / {{ paperTarget }} 进度 · 灵感箱 {{ me.paper.bank }} / 60</span><button class="primary" :disabled="busy||!canSubmit" @click="act('submit')">{{ me.paper.phase==='review'?'Under Review':me.paper.phase==='draft'?'提交论文':'提交返修稿' }}<ArrowRight :size="17"/></button></div></article>
-      <div class="section-title"><h2>我承接的项目</h2><span>{{ myProjects.length }} / 3 个</span></div><div v-if="!myProjects.length" class="empty-state"><Building2 :size="36"/><h3>先有一个项目，再有一片科研江山。</h3><p>走到地图里的项目格就可以承接，第一项 300 经费起。</p><button class="text-button" @click="tab='map'">去园区转转<ArrowRight :size="15"/></button></div><div v-for="pr in myProjects" :key="pr.def" class="project-row"><div class="project-icon"><component :is="content.projects[pr.def]?.domain==='air'?Plane:Building2" :size="25"/></div><div><h3>{{ content.projects[pr.def]?.name }}</h3><p>基础 {{ content.projects[pr.def]?.income }} 经费 / 2 小时 · 仓储 {{ pr.stock.length }} / 6</p><small>{{ isPaused(pr.def)?'短暂停产，稍后自动恢复':duration(2*3600000-pr.elapsed)+'后生成下一笔产出' }}</small></div><span class="tiny-tag">{{ {civil:'智能建造',air:'低空经济',cross:'交叉研究'}[content.projects[pr.def]?.domain||'cross'] }}</span></div>
-     </template>
+     <ResearchHub v-else-if="tab==='research'" :player="me" :state="state" :busy="busy" :now="clock" :perform="act" @map="tab='map'"/>
      <template v-else-if="tab==='bag'"><div class="panel-heading"><div><span class="eyebrow">A LITTLE KINDNESS, A LITTLE MISCHIEF</span><h1>科研背包</h1></div><span class="tiny-tag">{{ me.hand?.length||0 }} / 6 张卡</span></div><p class="intro">{{ me.cardUsed?'下一次移动结束后，又可以出一张牌。':'本次还有一次出牌机会。给搭子留一点科研善意，或者节目效果。' }}</p><div class="card-grid"><article v-for="id in hand" :key="id" class="research-card" :class="content.cards[id]?.type"><div class="card-label">{{ {attack:'适度互坑',coop:'一起搞科研',self:'照顾自己'}[content.cards[id]?.type||'self'] }}<span>×{{ me.hand?.filter(x=>x===id).length }}</span></div><FlaskConical :size="25" :stroke-width="1.4"/><h3>{{ content.cards[id]?.name }}</h3><p>{{ content.cards[id]?.description }}</p><button :disabled="busy||me.cardUsed||!!me.pending||(!partner&&content.cards[id]?.type!=='self')" @click="act('card',{card:id})">使用这张牌<ArrowUpRight :size="16"/></button></article></div><p v-if="!hand.length" class="empty-state">手里暂时没有卡。每三次移动有机会获得一张。</p>
       <div class="section-title"><h2>我的设备</h2><span>最多启用两件</span></div><div v-if="!me.equipment.length" class="equipment-empty"><Satellite :size="24"/><p>现在是基础采集包，走到仪器共享站可以买设备。</p></div><div v-for="id in me.equipment" :key="id" class="project-row"><Satellite :size="24"/><div><h3>{{ content.equipment.find(e=>e.id===id)?.name }}</h3><p>{{ content.equipment.find(e=>e.id===id)?.description }}</p></div><button :disabled="busy" class="secondary" @click="toggleEquip(id)">{{ me.active.includes(id)?'已启用 · 停用':'启用设备' }}</button></div>
      </template>
-     <InboxPanel v-else-if="tab==='mail'" :player="me" :busy="busy" :now="clock" @act="act"/>
+     <InboxPanel v-else-if="tab==='mail'" :player="me" :partner="partner" :busy="busy" :now="clock" :perform="act"/>
      <StudentsPanel v-else-if="tab==='students'" :player="me" :state="state" :busy="busy" :now="clock" @act="act"/>
      <template v-else><div class="panel-heading"><div><span class="eyebrow">BUILT BY BOTH OF US</span><h1>我们的联合实验室</h1></div><span class="level-stamp">Lv.{{ state.lab.level }}</span></div><div class="lab-feature"><CampusArt/><div><span class="small-label">两张桌子，慢慢变成一个未来。</span><h2>{{ content.lab[state.lab.level-1]?.name }}</h2><p>{{ state.lab.level===5?'未来城市科研中心落成了。两位博士，合作愉快。':'经费可以少投一点，论文可以慢一点。这个地方，是你们一起建起来的。' }}</p></div></div>
       <template v-if="nextLab"><div class="section-title"><h2>下一站：{{ nextLab.name }}</h2></div><div class="lab-progress"><div v-for="row in [{key:'funds' as const,label:'科研经费',goal:nextLab.funds},{key:'credits' as const,label:'成果点',goal:nextLab.credits},{key:'rep' as const,label:'登记声望',goal:nextLab.rep}]" :key="row.key"><span>{{ row.label }}<b>{{ state.lab[row.key] }} / {{ row.goal }}</b></span><div class="progress-track"><i :style="{width:Math.min(100,state.lab[row.key]/Math.max(1,row.goal)*100)+'%'}"/></div></div></div><p class="muted">门槛为累计值。首次升级需两人各投入至少 100 经费；捐成果点不会减少累计论文。</p><div class="contribute-form"><select v-model="donateKind"><option value="funds">投入经费</option><option value="credits">贡献成果点</option><option value="rep">登记声望</option></select><input v-model.number="contribution" type="number" min="1" max="100000" step="1" aria-label="投入数量"/><button class="primary" :disabled="busy" @click="act('contribute',{kind:donateKind,amount:contribution})">一起添块砖<Plus :size="17"/></button></div><p class="muted">你可用：经费 {{ Math.floor(me.funds) }} · 成果点 {{ me.credits }} · 未登记声望 {{ me.rep-me.registeredRep }}</p></template>

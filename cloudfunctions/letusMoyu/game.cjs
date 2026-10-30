@@ -57,9 +57,9 @@ function reward(s,p,d,now,main=false){
 }
 function draw(p,rng=random){if(p.hand.length<6)p.hand.push(Math.floor(rng()*C.cards.length));else p.funds+=20;}
 function accept(s,p,now){
- const bank=p.paper.bank;p.papers++;p.credits++;p.rep+=5;p.funds+=100;p.mood=clamp(p.mood+10,0,100);
+ const manuscript=structuredClone(p.paper),bank=p.paper.bank;p.papers++;p.credits++;p.rep+=5;p.funds+=100;p.mood=clamp(p.mood+10,0,100);
  p.paper={phase:'draft',progress:bank,bank:0,reviewAt:0,reviewRoll:0,round:0,required:0};
- Research.paperAccepted(s,p);
+ Research.paperAccepted(s,p,now,manuscript);
  log(s,p.name+' 的论文 Accept！导师在群里发了一个大拇指。',now,'paper');
 }
 function review(s,p,now){
@@ -85,19 +85,22 @@ function rate(s,project,now){
 }
 function settleProject(s,pr,now){
  if(now<=pr.lastAt)return;
+ if(pr.completedAt){pr.lastAt=now;return;}
  const boundaries=[pr.lastAt,now];
  for(const e of s.effects)if(!e.done&&e.expires>pr.lastAt&&e.expires<now)boundaries.push(e.expires);
  boundaries.sort((a,b)=>a-b);
  for(let k=0;k<boundaries.length-1;k++){
-  let t=boundaries[k],end=boundaries[k+1];if(pr.stock.length>=6)break;
+  let t=boundaries[k],end=boundaries[k+1];if(pr.stock.length>=6||pr.completedAt)break;
   if(s.effects.some(e=>e.type==='pause'&&e.project===pr.def&&e.target===pr.owner&&!e.done&&e.expires>t))continue;
   while(t<end&&pr.stock.length<6){
    const dt=Math.min(end-t,CYCLE-pr.elapsed);pr.value+=rate(s,pr,t)*dt/CYCLE;pr.elapsed+=dt;t+=dt;
    if(pr.elapsed>=CYCLE){
     let funds=Math.round(pr.value*1e6)/1e6;const steal=active(s,'steal',pr.owner,t-1);
-    if(steal&&steal.project===pr.def){funds-=20;s.players[steal.source].funds+=20;progress(s.players[pr.owner],8);steal.done=true;
-      log(s,s.players[steal.source].name+' 接走一笔外协单：20 经费。项目主人获得 8 进度，设施仍归原主。',now,'interaction');}
+    if(pr.finance?.model==='contract'){funds=Math.min(funds,Math.max(0,pr.finance.totalFunding-pr.finance.allocatedFunding));pr.finance.allocatedFunding=Math.round((pr.finance.allocatedFunding+funds)*1e6)/1e6;if(pr.finance.allocatedFunding>=pr.finance.totalFunding)pr.completedAt=t;}
+    if(steal&&steal.project===pr.def){const taken=Math.min(20,funds);funds-=taken;s.players[steal.source].funds+=taken;progress(s.players[pr.owner],8);steal.done=true;
+      log(s,s.players[steal.source].name+' 接走一笔外协单：'+taken+' 经费。项目主人获得 8 进度，设施仍归原主。',now,'interaction');}
     pr.stock.push({funds,progress:C.projects[pr.def].progress});pr.elapsed=0;pr.value=0;
+    if(pr.completedAt)break;
    }
   }
  }
@@ -106,6 +109,7 @@ function settleProject(s,pr,now){
 function settle(s,now){
  if(s.rulesVersion<2)for(const pr of Object.values(s.projects))settleProject(s,pr,now);
  Research.migrate(s,now);
+ for(const pr of Object.values(s.projects))if(!pr.finance)pr.finance={model:'facility',initialInvestment:Math.round(C.projects[pr.def].cost*(s.players[pr.owner].discipline==='civil'&&C.projects[pr.def].domain==='civil'?.9:1)),totalFunding:0,advance:0,allocatedFunding:0,receivedFunding:0,operatingIncome:0,legacy:true};
  for(const p of Object.values(s.players)){
   if(p.energy<5){const ticks=Math.max(0,Math.floor((now-p.energyAt)/(30*MIN)));if(ticks){p.energy=Math.min(5,p.energy+ticks);p.energyAt=p.energy===5?now:p.energyAt+ticks*30*MIN;}}
  }
@@ -118,7 +122,7 @@ function settle(s,now){
 function claim(s,p,now){
  let funds=0,paper=0;
  for(const pr of Object.values(s.projects).filter(x=>x.owner===p.id)){
-  for(const b of pr.stock){funds+=b.funds;paper+=b.progress;}pr.stock=[];
+  for(const b of pr.stock){funds+=b.funds;paper+=b.progress;if(pr.finance){pr.finance.operatingIncome=Math.round((pr.finance.operatingIncome+b.funds)*1e6)/1e6;if(pr.finance.model==='contract')pr.finance.receivedFunding=Math.round((pr.finance.receivedFunding+b.funds)*1e6)/1e6;}}pr.stock=[];
  }
  if(funds||paper){p.funds=Math.round((p.funds+funds)*1e6)/1e6;progress(p,paper);log(s,p.name+' 收到了项目产出：经费 +'+Math.floor(funds)+'，进度 +'+paper+'。',now,'income');}
  Research.claim(s,p,now);
@@ -170,7 +174,7 @@ function move(s,p,now,rng=random){
  }
  finishMove(s,p,dice,now,rng);
 }
-function price(p,def){return Math.round(def.cost*(p.discipline==='civil'&&def.domain==='civil'?.9:1));}
+function price(p,def){return def.kind==='contract'?0:Math.round(def.cost*(p.discipline==='civil'&&def.domain==='civil'?.9:1));}
 function resolve(s,p,choice,now,rng=random,timeout=false){
  const pending=p.pending;check(pending,'这里已经结算过了');
  if(pending.type==='route'){
@@ -181,10 +185,11 @@ function resolve(s,p,choice,now,rng=random,timeout=false){
  if(pending.type==='project'){
   if(choice==='buy'){
    const def=C.projects[pending.project];check(!s.projects[def.id],'对方先签下了项目，可免费离开');
-   check(Object.values(s.projects).filter(x=>x.owner===p.id).length<3,'每人最多三个项目');
+   check(Object.values(s.projects).filter(x=>x.owner===p.id&&!x.completedAt).length<3,'每人最多三个进行中的项目或设施');
    const cost=price(p,def);check(p.funds>=cost,'科研经费不足');p.funds-=cost;
-   s.projects[def.id]={def:def.id,owner:p.id,lastAt:now,elapsed:0,value:0,stock:[]};
-   log(s,p.name+' 承接了 '+def.name+'，花费 '+cost+' 经费。',now,'project');
+   const contract=def.kind==='contract',advance=contract?def.advance:0;p.funds+=advance;
+   s.projects[def.id]={def:def.id,owner:p.id,lastAt:now,signedAt:now,elapsed:0,value:0,stock:[],finance:{model:def.kind,initialInvestment:cost,totalFunding:def.totalFunding,advance,allocatedFunding:advance,receivedFunding:advance,operatingIncome:0}};
+   log(s,p.name+(contract?' 签订横向合同「'+def.name+'」，首款 '+advance+' 经费到账，合同总经费 '+def.totalFunding+'。':' 建设了「'+def.name+'」，投入 '+cost+' 经费。'),now,'project');
   }else reward(s,p,{p:4},now,true);
  }else if(pending.type==='equipment'){
   if(choice!=='skip'){
@@ -294,14 +299,15 @@ function execute(s,uid,action,payload,now=Date.now(),rng=random){
  else if(action==='contribute')contribute(s,p,payload.kind,Number(payload.amount),now);
  else if(action==='equip'){
   check(Array.isArray(payload.items)&&payload.items.length<=2&&new Set(payload.items).size===payload.items.length&&payload.items.every(x=>p.equipment.includes(x)),'最多启用两件已有设备');p.active=[...payload.items];
- }else if(!Research.dispatch(s,p,action,payload,now))check(action==='state'||action==='export','未知操作');
+ }else if(!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
  return view(s,uid,now);
 }
 function view(s,uid,now){
  const result=JSON.parse(JSON.stringify(s));result.self=uid;result.serverNow=now;
  for(const p of Object.values(result.players)){delete p.paper.reviewRoll;
+  p.inbox=p.inbox.map(require('./mail-content.cjs').publicMail);
   p.benefits={achievementBonus:Research.bonus(p),quota:Research.quota(s)};
-  if(p.id!==uid){delete p.inbox;delete p.nextMailAt;delete p.mailSequence;if(p.admissions)delete p.admissions.candidates;}
+  if(p.id!==uid){delete p.inbox;delete p.nextMailAt;delete p.mailSequence;delete p.threadSummaries;delete p.mailSent;if(p.admissions)delete p.admissions.candidates;}
   if(p.id!==uid){delete p.hand;delete p.pending;delete p.coopAt;}
   else if(p.pending)delete p.pending.roll;
  }
