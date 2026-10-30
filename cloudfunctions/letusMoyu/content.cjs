@@ -5,7 +5,7 @@ const projects = [
   ['机器人施工基地','civil',420,31,0,['sensor']],['智慧桥梁监测','civil',400,30,0,['sensor']],
   ['无人机起降平台','air',300,24,0,['drone']],['地下空间三维建模','cross',360,27,1,['lidar']],
   ['低空通信基站','air',360,27,0,['drone']],['城市低空基础设施监测','cross',480,34,1,['sensor','drone']]
-].map(([name,domain,cost,income,progress,equipment],id)=>({id,name,domain,cost,income,progress,equipment,kind:[0,2,3,5,7,9].includes(id)?'contract':'facility',advance:[0,2,3,5,7,9].includes(id)?cost:0,totalFunding:[0,2,3,5,7,9].includes(id)?cost*5:0}));
+].map(([name,domain,cost,income,progress,equipment],id)=>({id,name,domain,cost,income,progress,equipment,kind:[0,2,3,5,7,9].includes(id)?'contract':'facility',advance:0,totalFunding:[0,2,3,5,7,9].includes(id)?cost*5:0}));
 const tiles = [
   ['校门','start'],['图书馆','library'],['打印店','event'],['隧道试验基地','project',0],['导师办公室','mentor'],
   ['仪器共享站','equipment'],['数字孪生实验室','project',1],['食堂','rest'],['无人机巡检基地','project',2],['灵感草坪','event'],
@@ -75,7 +75,7 @@ const cards=[
  ['横向经费到账','self','自己经费 +80'],
  ['合理延期','self','下一次事件的经费、心情损失减半，12 小时有效'],
  ['跨学科联合署名','coop','双方进度 +10；各有本专业项目时各再得 20 经费'],
- ['课题截胡','attack','下一笔新产出分走 20 经费，对方获得 8 进度，6 小时有效'],
+ ['课题截胡','attack','下一笔设施新产出分走 20 经费，对方获得 8 进度，6 小时有效'],
  ['顺路帮你报销','coop','自己经费 +100，对方进度 +4'],
  ['灵感便签','self','自己下次移动的主要进度额外 +8，12 小时有效']
 ].map(([name,type,description],id)=>({id,name,type,description}));
@@ -86,4 +86,4 @@ const lab=[
  {name:'低空交通与智能建造联合实验室',funds:3800,credits:3,rep:35},
  {name:'未来城市科研中心',funds:6000,credits:5,rep:50}
 ];
-module.exports={tiles,projects,equipment,events,cards,lab,research:require('./research-data-v4.cjs')};
+module.exports={tiles,projects,equipment,events,cards,lab,contracts:require('./contract-content.cjs'),research:require('./research-data-v4.cjs')};

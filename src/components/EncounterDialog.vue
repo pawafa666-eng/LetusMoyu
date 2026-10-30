@@ -28,8 +28,8 @@ onBeforeUnmount(()=>dialog.value?.close())
   <div class="event-choices">
    <template v-if="pending.type==='event'"><button v-for="(c,i) in event.choices" :key="i" :disabled="busy||player.funds<maxCost(c.delta)" :title="player.funds<maxCost(c.delta)?'需预留 '+maxCost(c.delta)+' 经费':''" @click="emit('choose',String(i))"><b>{{ i===0?'A':'B' }}</b><span>{{ c.text }}</span><ArrowRight :size="17"/></button></template>
    <template v-else-if="pending.type==='project'">
-    <div class="project-offer"><span>{{ {civil:'智能建造',air:'低空经济',cross:'交叉研究'}[project.domain] }}</span><h3>{{ project.name }}</h3><p>{{ project.kind==='contract'?'横向总经费 '+project.totalFunding+'，分阶段到账':'建设后提供长期共享服务' }}。基础阶段收入 {{ project.income }} 经费 / 2 小时{{ project.progress?'，另有 1 论文进度':'' }}。你退出以后，它还会继续工作。</p></div>
-    <button :disabled="busy||player.funds<cost||Object.values(state.projects).filter(p=>p.owner===player.id&&!p.completedAt).length>=3||!!state.projects[project.id]" @click="emit('choose','buy')"><b>A</b><span>{{ project.kind==='contract'?'签订横向合同 · 首款 +'+project.advance+' 经费':'建设设施 · 投入 '+cost+' 经费' }}</span><ArrowRight :size="17"/></button>
+    <div class="project-offer"><span>{{ {civil:'智能建造',air:'低空经济',cross:'交叉研究'}[project.domain] }}</span><h3>{{ project.name }}</h3><p v-if="project.kind==='contract'">合同总经费 {{ project.totalFunding }}，签约不直接发钱。在“我的科研 → 横向任务”安排四阶段工作，完成后提交验收拨款。可以自己做、委派学生、经费外协或邀请搭子合作。</p><p v-else>建设后提供长期共享服务，基础收入 {{ project.income }} 经费 / 2 小时{{ project.progress?'，另有 1 论文进度':'' }}。离线照常经营，最多保留 6 份产出。</p></div>
+    <button :disabled="busy||player.funds<cost||Object.values(state.projects).filter(p=>p.owner===player.id&&!p.completedAt).length>=3||!!state.projects[project.id]" @click="emit('choose','buy')"><b>A</b><span>{{ project.kind==='contract'?'签订横向 · 四阶段预算 '+project.totalFunding:'建设设施 · 投入 '+cost+' 经费' }}</span><ArrowRight :size="17"/></button>
     <button :disabled="busy" @click="emit('choose','skip')"><b>B</b><span>先留个研究思路 · 论文进度 +4</span><ArrowRight :size="17"/></button>
    </template>
    <template v-else-if="pending.type==='equipment'">

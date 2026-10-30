@@ -33,7 +33,7 @@ const people=computed(()=>Object.values(props.state.players))
   </button>
  </div></div>
  <div v-if="tile" class="tile-inspector">
-  <span><b>{{ tile.name }}</b><small v-if="tile.project!==null">基础经费 {{ content.projects[tile.project]?.income }} / 2 小时 · {{ content.projects[tile.project]?.kind==='contract'?'签约首款 +'+content.projects[tile.project]?.advance:'设施投入 '+content.projects[tile.project]?.cost }}</small><small v-else>走到这里就能遇见园区的小故事。点击格子只查看信息。</small></span>
+  <span><b>{{ tile.name }}</b><small v-if="tile.project!==null">{{ content.projects[tile.project]?.kind==='contract'?'合同总额 '+content.projects[tile.project]?.totalFunding+' · 四阶段任务验收拨款':'基础收益 '+content.projects[tile.project]?.income+' 经费 / 2 小时 · 设施投入 '+content.projects[tile.project]?.cost }}</small><small v-else>走到这里就能遇见园区的小故事。点击格子只查看信息。</small></span>
   <button class="text-button" @click="selected=null">收起</button>
  </div>
 </template>

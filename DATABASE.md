@@ -41,3 +41,17 @@ compound indexes（已创建）：
 ## 迁移和备份
 
 v0.4 自动补齐旧论文和专利的虚拟标题，不给历史成果伪造学生作者，也不向旧项目补发签约款。旧建设项目继续按设施计算。完整备份需要同时备份园区状态和独立会话集合；房间十二份滚动快照和玩家下载副本不包含完整往来会话。
+
+## v0.5 字段与事务
+
+沿用原有五个 ADMINONLY 文档集合与原生身份，不增加表、索引或浏览器直写权限；rulesVersion=5。
+
+- projects[def].contract：四个阶段 steps，每阶段保存 UUID、专业任务标题、款项、available / invited / working / ready / done 状态、job 和 payouts。旧合同仅将 totalFunding − allocatedFunding 分为四阶段，库存和已入账金额不改。
+- job：模式、邀请/接受时间、阶段参与 UID、学生 UUID、搭子与份额、材料费、工期、已工作时间、上次结算时间和预计截止时间。暂停期间不累计工作量。
+- finance.workCosts / partnerPaid：已实际支出的工作费用与已向搭子拨付的款项；allocatedFunding 为合同累计拨款总额，receivedFunding 为主办人的实际入账。无签约首款、无新合同被动产出。
+- players[uid].contractWork：当前个人工作位的项目、阶段与 job UUID；contractIncome / contractHistory 记录协作收入和验收历史。
+- students[].contractWork / contractLoads / studyWeights：学生工作位、实际占用区间和每轮研究权重。研究按六小时区间与横向占用区间重叠比例结算，忙碌区间速度 50%，不会把整段离线时间一概减半。
+- feed[].actorIds：归属 UID 数组。历史动态按玩家/学生原昵称补齐；共同横向显式记录双方 UID。前端按 discipline 显示姓名徽章和蓝/粉色。
+- thread.messages[].grant：资源 UUID，f / r / p 三项整数、claimedAt / claimedBy 和实际到账 actual；仅 NPC 消息可由信务管理员创建。资源上限为 5000 经费、50 声望、100 论文进度。
+
+新命令为 contract_start / contract_respond / contract_cancel / contract_claim，以及 letter_reward。全部通过原有云函数的原生 UID 校验、请求 UUID 幂等和数据库事务处理。领取附件会将玩家余额、消息领取状态、邮件回执和请求凭证一并提交；验收会将双方拨款、阶段完成状态、动态和请求凭证一并提交。重试、并发及再次点击不能重复拨款。

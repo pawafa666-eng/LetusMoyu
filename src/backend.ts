@@ -28,7 +28,7 @@ export async function signIn(alias:string,pin:string){
  return data.session.user.id
 }
 export async function request(action:string,payload:Record<string,unknown>={},requestId:string=crypto.randomUUID()):Promise<ApiResult>{
- if(preview){const r=await fetch('/__preview/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload,requestId})});return await r.json()}
+ if(preview){const r=await fetch('/__preview/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload,requestId,previewPlayer:new URLSearchParams(location.search).get('previewPlayer')})});return await r.json()}
  const response=await cloud.callFunction({name:'letusMoyu',data:{action,payload,requestId}})
  const raw:unknown=typeof response.result==='string'?JSON.parse(response.result):response.result
  if(!raw||typeof raw!=='object'||!('ok' in raw)||typeof raw.ok!=='boolean')throw new Error('云端返回格式异常，操作状态待确认，请使用原请求重试。')

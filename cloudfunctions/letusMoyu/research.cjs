@@ -3,7 +3,7 @@ const {randomUUID,createHash,randomInt}=require('node:crypto');
 const Data=require('./research-data-v4.cjs');
 const seed=s=>createHash('sha256').update(s).digest().readUInt32LE(0)/0x100000000;
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
-function createSystems({C,log,progress,reward,draw,check,HOUR}){
+function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=>1}){
  const Portfolio=require('./portfolio.cjs').createPortfolio({C,log,progress,check,HOUR});
  function year(s,now){
   if(s.academicYearDays===0)return new Date(now+8*HOUR).getUTCFullYear();
@@ -33,7 +33,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR}){
    syncYear(s,p,now);Portfolio.migrate(s,p,now);
    for(const m of p.inbox)if(!m.rules&&Data.mailTemplates.some(t=>t.id===m.template))m.rules=structuredClone(Data.mailTemplates.find(t=>t.id===m.template));
   }
-  s.rulesVersion=4;
+  require('./feed.cjs').migrate(s);s.rulesVersion=5;
  }
  function addIdeas(p,amount){if(p.patent?.phase==='draft')p.patent.progress=clamp(p.patent.progress+amount,0,60);}
  function bonus(p){return p.researchVersion?Math.min(.12,p.papers*.02+p.patent.total*.02+p.graduates*.01):0;}
@@ -60,23 +60,23 @@ function createSystems({C,log,progress,reward,draw,check,HOUR}){
    Portfolio.settle(s,p,now);
    for(const student of p.students.filter(x=>!x.graduatedAt)){
     const ticks=Math.max(0,Math.floor((now-student.lastStudyAt)/(6*HOUR)));
-    if(ticks){student.studyBuffer=Math.min(4,student.studyBuffer+ticks);student.lastStudyAt+=ticks*6*HOUR;student.wellbeing=Math.min(80,student.wellbeing+Math.min(ticks,4)*2);}
+    if(ticks){const buffered=student.studyWeights?.length===student.studyBuffer?student.studyWeights:Array(student.studyBuffer||0).fill(1),newWeights=[];for(let i=Math.max(0,ticks-4);i<ticks;i++){const start=student.lastStudyAt+i*6*HOUR;newWeights.push(researchWeight(student,start,start+6*HOUR));}student.studyWeights=[...buffered,...newWeights].slice(-4);student.studyBuffer=student.studyWeights.length;student.lastStudyAt+=ticks*6*HOUR;student.wellbeing=Math.min(80,student.wellbeing+Math.min(ticks,4)*2);}
    }
   }
  }
  function claim(s,p,now){
   let gained=0;
   for(const student of p.students.filter(x=>!x.graduatedAt)){
-   const ticks=student.studyBuffer;student.studyBuffer=0;
+   const ticks=student.studyWeights?.length===student.studyBuffer?student.studyWeights.reduce((a,b)=>a+b,0):student.studyBuffer;student.studyBuffer=0;student.studyWeights=[];
    const per=student.degree==='masters'?6:5;
    const amount=student.wellbeing<45?Math.ceil(per/2):per;
    const effective=Math.min(ticks,Math.ceil(Math.max(0,student.target-student.progress)/amount));
    Portfolio.advance(s,p,student,ticks,now);
    if(!effective)continue;
-   student.progress=Math.min(student.target,student.progress+effective*amount);
+   student.progress=Math.round(Math.min(student.target,student.progress+effective*amount)*10)/10;
    gained+=effective*((student.degree==='masters'?2:3)+(s.lab.level>=5?1:0));
   }
-  if(gained){progress(p,gained);log(s,p.name+' 收到学生的研究反馈，论文进度 +'+gained+'。',now,'students');}
+  if(gained){gained=Math.round(gained*10)/10;progress(p,gained);p.paper.progress=Math.round(p.paper.progress*10)/10;p.paper.bank=Math.round(p.paper.bank*10)/10;log(s,p.name+' 收到学生的研究反馈，论文进度 +'+gained+'。',now,'students');}
  }
  function paperAccepted(s,p,now,manuscript={}){addIdeas(p,12);draw(p);Portfolio.recordPaper(s,p,now,{title:manuscript.title,...manuscript.collaborators},true);}
  function labUpgraded(s,level,now){for(const p of Object.values(s.players)){p.funds+=level*40;p.mood=clamp(p.mood+8,0,100);addIdeas(p,5);}log(s,'升级福利：双方各得 '+level*40+' 经费、8 心情、5 专利灵感；新能力已生效。',now,'lab');}
@@ -125,7 +125,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR}){
  }
  function graduate(s,p,payload,now){
   const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt);check(st,'这位同学已经毕业或不在课题组');check(st.progress>=st.target,'研究还没到终点，继续陪同学一点点做');check(st.wellbeing>=40,'先关心一下同学的状态，再准备毕业');
-  check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';p.funds+=phd?200:120;p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
+  check(!st.contractWork,'先完成同学的横向任务，再安排毕业');check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';p.funds+=phd?200:120;p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
   log(s,st.name+' 顺利毕业！'+p.name+' 获得经费、声望和研究灵感，培养成果计入长期收益。',now,'students');
   if(p.students.length>36)p.students=p.students.filter(x=>!x.graduatedAt).concat(p.students.filter(x=>x.graduatedAt).slice(-24));
  }

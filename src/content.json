@@ -193,7 +193,7 @@
         "lidar"
       ],
       "kind": "contract",
-      "advance": 300,
+      "advance": 0,
       "totalFunding": 1500
     },
     {
@@ -222,7 +222,7 @@
         "lidar"
       ],
       "kind": "contract",
-      "advance": 360,
+      "advance": 0,
       "totalFunding": 1800
     },
     {
@@ -236,7 +236,7 @@
         "drone"
       ],
       "kind": "contract",
-      "advance": 420,
+      "advance": 0,
       "totalFunding": 2100
     },
     {
@@ -264,7 +264,7 @@
         "sensor"
       ],
       "kind": "contract",
-      "advance": 400,
+      "advance": 0,
       "totalFunding": 2000
     },
     {
@@ -292,7 +292,7 @@
         "lidar"
       ],
       "kind": "contract",
-      "advance": 360,
+      "advance": 0,
       "totalFunding": 1800
     },
     {
@@ -321,7 +321,7 @@
         "drone"
       ],
       "kind": "contract",
-      "advance": 480,
+      "advance": 0,
       "totalFunding": 2400
     }
   ],
@@ -1225,7 +1225,7 @@
       "id": 15,
       "name": "课题截胡",
       "type": "attack",
-      "description": "下一笔新产出分走 20 经费，对方获得 8 进度，6 小时有效"
+      "description": "下一笔设施新产出分走 20 经费，对方获得 8 进度，6 小时有效"
     },
     {
       "id": 16,
@@ -1272,6 +1272,76 @@
       "rep": 50
     }
   ],
+  "contracts": {
+    "modes": [
+      {
+        "id": "self",
+        "name": "自己花时间做",
+        "hours": 4,
+        "costRate": 0.1,
+        "description": "占用自己的一个横向工作位，地图行动照常。"
+      },
+      {
+        "id": "student",
+        "name": "委派本组学生",
+        "hours": 6,
+        "costRate": 0.05,
+        "description": "开始心情 −6，完成 −3；占用期间个人研究速度减半。"
+      },
+      {
+        "id": "outsource",
+        "name": "用经费请外协",
+        "hours": 2,
+        "costRate": 0.4,
+        "description": "多花一些经费，较快完成；不占个人或学生工作位。"
+      },
+      {
+        "id": "coop",
+        "name": "邀请搭子合作",
+        "hours": 3,
+        "costRate": 0.1,
+        "description": "搭子接受后才扣材料费和开工；双方按约定分账。"
+      }
+    ],
+    "stages": {
+      "0": [
+        "确认隧道巡检需求",
+        "采集隧道多源点云",
+        "验证缺陷识别方法",
+        "交付智能巡检报告"
+      ],
+      "2": [
+        "联合勘察桥梁",
+        "采集无人机与地面数据",
+        "复核桥梁缺陷识别",
+        "交付空地巡检成果"
+      ],
+      "3": [
+        "确认低空物流航线",
+        "完成通信与试飞验证",
+        "优化物流调度方案",
+        "交付示范线验收"
+      ],
+      "5": [
+        "设计桥梁监测方案",
+        "采集结构响应数据",
+        "验证结构预警方法",
+        "交付智慧监测平台"
+      ],
+      "7": [
+        "确认地下建模范围",
+        "采集地下空间点云",
+        "完成三维重建与复核",
+        "交付空间数字成果"
+      ],
+      "9": [
+        "摸排低空基础设施",
+        "融合城市监测数据",
+        "验证空地协同模型",
+        "交付城市监测系统"
+      ]
+    }
+  },
   "research": {
     "mailTemplates": [
       {

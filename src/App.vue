@@ -11,6 +11,7 @@ import DiceRoll from './components/DiceRoll.vue'
 import InboxPanel from './components/MailboxPanel.vue'
 import StudentsPanel from './components/TeamPanel.vue'
 import ResearchHub from './components/ResearchHub.vue'
+import CampusFeed from './components/CampusFeed.vue'
 import TutorialDialog from './components/TutorialDialog.vue'
 const board=ref<InstanceType<typeof CampusBoard>>(),dice=ref<InstanceType<typeof DiceRoll>>()
 const state=ref<RoomState|null>(null),loading=ref(true),signedIn=ref(false),busy=ref(false),online=ref(true),uid=ref('')
@@ -165,7 +166,7 @@ onBeforeUnmount(()=>{clearInterval(pollTimer);clearInterval(clockTimer);document
      </template>
     </section>
     <aside class="social-panel"><div class="partner-card"><span class="eyebrow">YOUR RESEARCH PARTNER</span><div class="partner-heading"><div class="avatar small" :class="partner?.discipline||'air'"><i/><span>{{ partner?.name.slice(0,1)||'?' }}</span></div><div><h3>{{ partner?.name||'搭子的桌子还空着' }}</h3><p>{{ partner?(partner.discipline==='air'?'低空经济研究中':'智能建造研究中'):'邀请 TA，未来的热闹就有了。' }}</p></div></div><div v-if="partner" class="partner-stats"><span>论文<b>{{ partner.papers }}</b></span><span>声望<b>{{ partner.rep }}</b></span><span>心情<b>{{ partner.mood }}</b></span></div><button class="invite-code" @click="copyInvite"><span>园区邀请码<b>{{ state.id }}</b></span><component :is="copied?Check:Copy" :size="16"/></button></div>
-     <div class="feed-heading"><h2>园区小道消息</h2><span class="live-dot"/></div><p class="feed-caption">你不在线的时候，也有故事发生。</p><ol class="feed-list"><li v-for="item in state.feed.slice(0,18)" :key="item.id" :class="item.kind"><time>{{ relative(item.at) }}</time><p>{{ item.text }}</p></li></ol><p class="saved-note"><Check :size="13"/>{{ savedAt?'已保存 · '+new Date(savedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'正在同步' }}</p>
+     <div class="feed-heading"><h2>园区小道消息</h2><span class="live-dot"/></div><p class="feed-caption">你不在线的时候，也有故事发生。</p><CampusFeed :state="state" :now="clock"/><p class="saved-note"><Check :size="13"/>{{ savedAt?'已保存 · '+new Date(savedAt).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}):'正在同步' }}</p>
     </aside>
    </div>
    <nav class="mobile-nav"><button v-for="item in navItems" :key="item.id" :class="{active:tab===item.id}" @click="tab=item.id"><component :is="item.icon" :size="20"/>{{ item.short }}<i v-if="item.id==='mail'&&unread" class="mobile-mail-dot"/></button></nav>

@@ -1,11 +1,12 @@
 'use strict';
 const {randomInt,randomUUID}=require('node:crypto');
 const C=require('./content.cjs');
+const Feed=require('./feed.cjs');
 const MIN=60_000, HOUR=60*MIN, CYCLE=2*HOUR;
 const random=()=>randomInt(0,0x100000000)/0x100000000;
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 function check(ok,message){if(!ok)throw new Error(message);}
-function log(s,text,now,kind='research'){s.feed.unshift({id:randomUUID(),text,at:now,kind});s.feed=s.feed.slice(0,160);}
+function log(s,text,now,kind='research',actors){Feed.push(s,text,now,kind,actors);}
 function other(s,p){return Object.values(s.players).find(x=>x.id!==p.id);}
 function player(id,name,discipline,now){
  return {id,name:name.trim().slice(0,16)||'匿名博士',discipline,funds:700,energy:5,energyAt:now,position:0,
@@ -16,12 +17,12 @@ function player(id,name,discipline,now){
 function createRoom(id,uid,name,discipline,now){
  check(['civil','air'].includes(discipline),'请选择研究方向');
  const s={id,rulesVersion:1,version:0,createdAt:now,players:{[uid]:player(uid,name,discipline,now)},projects:{},effects:[],feed:[],lab:{level:1,funds:0,credits:0,rep:0}};
- Research.migrate(s,now);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
+ Research.migrate(s,now);Contracts.migrate(s);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
 }
 function join(s,uid,name,now){
  check(!s.players[uid],'你已经在园区里了');check(Object.keys(s.players).length<2,'这个园区已经有两位博士了');
  const first=Object.values(s.players)[0];s.players[uid]=player(uid,name,first.discipline==='civil'?'air':'civil',now);
- Research.migrate(s,now);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
+ Research.migrate(s,now);Contracts.migrate(s);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
 }
 function progress(p,amount){
  if(amount<=0)return;
@@ -84,6 +85,7 @@ function rate(s,project,now){
  return def.income*(1+Math.min(.3,bonus)+Research.bonus(p));
 }
 function settleProject(s,pr,now){
+ if(pr.finance?.model==='contract'){pr.lastAt=Math.max(pr.lastAt,now);return;}
  if(now<=pr.lastAt)return;
  if(pr.completedAt){pr.lastAt=now;return;}
  const boundaries=[pr.lastAt,now];
@@ -110,6 +112,7 @@ function settle(s,now){
  if(s.rulesVersion<2)for(const pr of Object.values(s.projects))settleProject(s,pr,now);
  Research.migrate(s,now);
  for(const pr of Object.values(s.projects))if(!pr.finance)pr.finance={model:'facility',initialInvestment:Math.round(C.projects[pr.def].cost*(s.players[pr.owner].discipline==='civil'&&C.projects[pr.def].domain==='civil'?.9:1)),totalFunding:0,advance:0,allocatedFunding:0,receivedFunding:0,operatingIncome:0,legacy:true};
+ Contracts.settle(s,now);
  for(const p of Object.values(s.players)){
   if(p.energy<5){const ticks=Math.max(0,Math.floor((now-p.energyAt)/(30*MIN)));if(ticks){p.energy=Math.min(5,p.energy+ticks);p.energyAt=p.energy===5?now:p.energyAt+ticks*30*MIN;}}
  }
@@ -187,9 +190,10 @@ function resolve(s,p,choice,now,rng=random,timeout=false){
    const def=C.projects[pending.project];check(!s.projects[def.id],'对方先签下了项目，可免费离开');
    check(Object.values(s.projects).filter(x=>x.owner===p.id&&!x.completedAt).length<3,'每人最多三个进行中的项目或设施');
    const cost=price(p,def);check(p.funds>=cost,'科研经费不足');p.funds-=cost;
-   const contract=def.kind==='contract',advance=contract?def.advance:0;p.funds+=advance;
+   const contract=def.kind==='contract',advance=0;
    s.projects[def.id]={def:def.id,owner:p.id,lastAt:now,signedAt:now,elapsed:0,value:0,stock:[],finance:{model:def.kind,initialInvestment:cost,totalFunding:def.totalFunding,advance,allocatedFunding:advance,receivedFunding:advance,operatingIncome:0}};
-   log(s,p.name+(contract?' 签订横向合同「'+def.name+'」，首款 '+advance+' 经费到账，合同总经费 '+def.totalFunding+'。':' 建设了「'+def.name+'」，投入 '+cost+' 经费。'),now,'project');
+   Contracts.initialize(s.projects[def.id]);
+   log(s,p.name+(contract?' 签订横向合同「'+def.name+'」，总经费 '+def.totalFunding+'；完成四阶段任务并验收后拨款。':' 建设了「'+def.name+'」，投入 '+cost+' 经费。'),now,'project');
   }else reward(s,p,{p:4},now,true);
  }else if(pending.type==='equipment'){
   if(choice!=='skip'){
@@ -235,7 +239,7 @@ function useCard(s,p,id,now,rng=random){
   p.attacks=p.attacks.filter(t=>now-t<24*HOUR);check(p.attacks.length<2,'今天的恶作剧额度已经用完了');
   let pr;
   if([5,6,15].includes(id)){
-   const targets=Object.values(s.projects).filter(x=>x.owner===q.id&&(id!==5||C.projects[x.def].domain!=='civil')&&(id!==15||x.stock.length<6));
+   const targets=Object.values(s.projects).filter(x=>x.owner===q.id&&!x.completedAt&&(id!==5||C.projects[x.def].domain!=='civil')&&(id!==15||(x.finance?.model!=='contract'&&x.stock.length<6)));
    check(targets.length,'搭子没有可用的目标项目');pr=targets[Math.floor(rng()*targets.length)];
   }
   if(id===2)check(q.active.length,'搭子还没有启用的设备');
@@ -299,11 +303,12 @@ function execute(s,uid,action,payload,now=Date.now(),rng=random){
  else if(action==='contribute')contribute(s,p,payload.kind,Number(payload.amount),now);
  else if(action==='equip'){
   check(Array.isArray(payload.items)&&payload.items.length<=2&&new Set(payload.items).size===payload.items.length&&payload.items.every(x=>p.equipment.includes(x)),'最多启用两件已有设备');p.active=[...payload.items];
- }else if(!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
+ }else if(!Contracts.dispatch(s,p,action,payload,now)&&!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
  return view(s,uid,now);
 }
 function view(s,uid,now){
  const result=JSON.parse(JSON.stringify(s));result.self=uid;result.serverNow=now;
+ for(const pr of Object.values(result.projects)){const step=Contracts.current(pr);if(step?.status==='available'&&pr.owner===uid)pr.contract.quotes=Object.fromEntries(require('./contract-content.cjs').modes.map(m=>[m.id,Contracts.quote(s,s.projects[pr.def],m.id,now)]));}
  for(const p of Object.values(result.players)){delete p.paper.reviewRoll;
   p.inbox=p.inbox.map(require('./mail-content.cjs').publicMail);
   p.benefits={achievementBonus:Research.bonus(p),quota:Research.quota(s)};
@@ -313,5 +318,6 @@ function view(s,uid,now){
  }
  return result;
 }
-const Research=require('./research.cjs').createSystems({C,log,progress,reward,draw,check,HOUR});
-module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,Research};
+const Research=require('./research.cjs').createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight:(st,start,end)=>Contracts.researchWeight(st,start,end)});
+const Contracts=require('./contracts.cjs').createContracts({C,check,log,progress,rate,HOUR});
+module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,reward,log,Research,Contracts};
