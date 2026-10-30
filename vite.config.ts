@@ -1,3 +1,5 @@
 import {defineConfig} from 'vite'
 import vue from '@vitejs/plugin-vue'
-export default defineConfig({plugins:[vue()],base:'./',server:{host:'0.0.0.0'},build:{target:'es2022'}})
+import {createRequire} from 'node:module'
+const require=createRequire(import.meta.url)
+export default defineConfig(({command})=>({plugins:[vue(),...(command==='serve'?[require('./scripts/preview.cjs')()]:[])],base:'./',server:{host:'0.0.0.0'},build:{target:'es2022'}}))

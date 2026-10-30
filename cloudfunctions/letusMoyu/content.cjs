@@ -86,4 +86,4 @@ const lab=[
  {name:'低空交通与智能建造联合实验室',funds:3800,credits:3,rep:35},
  {name:'未来城市科研中心',funds:6000,credits:5,rep:50}
 ];
-module.exports={tiles,projects,equipment,events,cards,lab};
+module.exports={tiles,projects,equipment,events,cards,lab,research:require('./research-content.cjs')};

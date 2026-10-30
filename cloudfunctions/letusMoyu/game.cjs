@@ -16,12 +16,12 @@ function player(id,name,discipline,now){
 function createRoom(id,uid,name,discipline,now){
  check(['civil','air'].includes(discipline),'请选择研究方向');
  const s={id,rulesVersion:1,version:0,createdAt:now,players:{[uid]:player(uid,name,discipline,now)},projects:{},effects:[],feed:[],lab:{level:1,funds:0,credits:0,rep:0}};
- log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
+ Research.migrate(s,now);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
 }
 function join(s,uid,name,now){
  check(!s.players[uid],'你已经在园区里了');check(Object.keys(s.players).length<2,'这个园区已经有两位博士了');
  const first=Object.values(s.players)[0];s.players[uid]=player(uid,name,first.discipline==='civil'?'air':'civil',now);
- log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
+ Research.migrate(s,now);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
 }
 function progress(p,amount){
  if(amount<=0)return;
@@ -52,12 +52,14 @@ function reward(s,p,d,now,main=false){
   if(p.tutor>=70&&(p.position===4||p.position===13))amount+=2;
  }
  progress(p,amount);
+ if(main&&amount>0)Research.addIdeas(p,Math.min(3,Math.ceil(amount/4)));
  if(d.other){const q=other(s,p);if(q)reward(s,q,d.other,now);}
 }
 function draw(p,rng=random){if(p.hand.length<6)p.hand.push(Math.floor(rng()*C.cards.length));else p.funds+=20;}
 function accept(s,p,now){
  const bank=p.paper.bank;p.papers++;p.credits++;p.rep+=5;p.funds+=100;p.mood=clamp(p.mood+10,0,100);
  p.paper={phase:'draft',progress:bank,bank:0,reviewAt:0,reviewRoll:0,round:0,required:0};
+ Research.paperAccepted(s,p);
  log(s,p.name+' 的论文 Accept！导师在群里发了一个大拇指。',now,'paper');
 }
 function review(s,p,now){
@@ -79,7 +81,7 @@ function rate(s,project,now){
  const all=Object.values(s.players);
  const both=all.length===2&&all.every(x=>Object.values(s.projects).some(pr=>pr.owner===x.id&&C.projects[pr.def].domain===x.discipline));
  if(def.domain==='cross'){if(both)bonus+=.05;if(s.lab.level>=4)bonus+=.05;}
- return def.income*(1+Math.min(.3,bonus));
+ return def.income*(1+Math.min(.3,bonus)+Research.bonus(p));
 }
 function settleProject(s,pr,now){
  if(now<=pr.lastAt)return;
@@ -102,11 +104,14 @@ function settleProject(s,pr,now){
  pr.lastAt=now;
 }
 function settle(s,now){
+ if(s.rulesVersion<2)for(const pr of Object.values(s.projects))settleProject(s,pr,now);
+ Research.migrate(s,now);
  for(const p of Object.values(s.players)){
   if(p.energy<5){const ticks=Math.max(0,Math.floor((now-p.energyAt)/(30*MIN)));if(ticks){p.energy=Math.min(5,p.energy+ticks);p.energyAt=p.energy===5?now:p.energyAt+ticks*30*MIN;}}
-  review(s,p,now);
  }
  for(const pr of Object.values(s.projects))settleProject(s,pr,now);
+ for(const p of Object.values(s.players))review(s,p,now);
+ Research.settle(s,now);
  for(const p of Object.values(s.players))if(p.pending&&p.pending.expires<=now)resolve(s,p,'skip',now,random,true);
  s.effects=s.effects.filter(e=>e.expires>now&&!e.done);
 }
@@ -116,6 +121,7 @@ function claim(s,p,now){
   for(const b of pr.stock){funds+=b.funds;paper+=b.progress;}pr.stock=[];
  }
  if(funds||paper){p.funds=Math.round((p.funds+funds)*1e6)/1e6;progress(p,paper);log(s,p.name+' 收到了项目产出：经费 +'+Math.floor(funds)+'，进度 +'+paper+'。',now,'income');}
+ Research.claim(s,p,now);
  return {funds,paper};
 }
 function takeEnergy(p,now,amount=1){check(p.energy>=amount,'行动力还在路上，休息一下再来');if(p.energy===5)p.energyAt=now;p.energy-=amount;}
@@ -145,6 +151,7 @@ function encounter(s,p,now,rng){
 function returnBorrowed(s,p){for(const e of s.effects)if(e.type==='borrow'&&e.source===p.id&&!e.done)e.done=true;}
 function finishMove(s,p,steps,now,rng){
  const old=p.position;p.position=(old+steps)%30;if(old+steps>=30)p.funds+=80;
+ p.lastMove={...(p.lastMove||{id:randomUUID(),dice:steps}),from:old,to:p.position,steps,pendingRoute:false,at:now,kind:'walk'};
  log(s,p.name+' 前进 '+steps+' 格，到了 '+C.tiles[p.position].name+'。',now,'move');
  encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);
 }
@@ -153,10 +160,12 @@ function move(s,p,now,rng=random){
  p.cardDraws=(p.cardDraws||[]).filter(t=>now-t<24*HOUR);
  if(p.actionCount%3===0&&p.cardDraws.length<4){draw(p,rng);p.cardDraws.push(now);}
  const forced=active(s,'mentor',p.id,now);
- if(forced){forced.done=true;p.position=4;encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);log(s,p.name+' 收到导师召唤，去了办公室。',now,'interaction');return;}
+ if(forced){forced.done=true;const from=p.position;p.position=4;p.lastMove={id:randomUUID(),from,to:4,dice:0,steps:0,at:now,kind:'teleport',pendingRoute:false};encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);log(s,p.name+' 收到导师召唤，去了办公室。',now,'interaction');return;}
  const dice=1+Math.floor(rng()*6),bus=active(s,'bus',p.id,now);
+ p.lastMove={id:randomUUID(),from:p.position,to:p.position,dice,steps:0,pendingRoute:false,at:now,kind:'walk'};
  if(bus||(p.discipline==='air'&&before>0&&before%3===0)){
   p.pending={type:'route',dice,bus:!!bus,expires:now+12*HOUR};
+  p.lastMove.pendingRoute=true;
   if(bus)bus.done=true;return;
  }
  finishMove(s,p,dice,now,rng);
@@ -273,7 +282,7 @@ function contribute(s,p,kind,amount,now){
  while(s.lab.level<5){
   const next=C.lab[s.lab.level];const both=Object.values(s.players).length===2&&Object.values(s.players).every(x=>x.donated>=100);
   if(!both||s.lab.funds<next.funds||s.lab.credits<next.credits||s.lab.rep<next.rep)break;
-  s.lab.level++;log(s,'联合实验室升级为「'+next.name+'」！两张桌子居然真的发展起来了。',now,'lab');
+  s.lab.level++;Research.labUpgraded(s,s.lab.level,now);log(s,'联合实验室升级为「'+next.name+'」！两张桌子居然真的发展起来了。',now,'lab');
  }
 }
 function execute(s,uid,action,payload,now=Date.now(),rng=random){
@@ -285,15 +294,18 @@ function execute(s,uid,action,payload,now=Date.now(),rng=random){
  else if(action==='contribute')contribute(s,p,payload.kind,Number(payload.amount),now);
  else if(action==='equip'){
   check(Array.isArray(payload.items)&&payload.items.length<=2&&new Set(payload.items).size===payload.items.length&&payload.items.every(x=>p.equipment.includes(x)),'最多启用两件已有设备');p.active=[...payload.items];
- }else check(action==='state'||action==='export','未知操作');
+ }else if(!Research.dispatch(s,p,action,payload,now))check(action==='state'||action==='export','未知操作');
  return view(s,uid,now);
 }
 function view(s,uid,now){
  const result=JSON.parse(JSON.stringify(s));result.self=uid;result.serverNow=now;
  for(const p of Object.values(result.players)){delete p.paper.reviewRoll;
+  p.benefits={achievementBonus:Research.bonus(p),quota:Research.quota(s)};
+  if(p.id!==uid){delete p.inbox;delete p.nextMailAt;delete p.mailSequence;if(p.admissions)delete p.admissions.candidates;}
   if(p.id!==uid){delete p.hand;delete p.pending;delete p.coopAt;}
   else if(p.pending)delete p.pending.roll;
  }
  return result;
 }
-module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress};
+const Research=require('./research.cjs').createSystems({C,log,progress,reward,draw,check,HOUR});
+module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,Research};
