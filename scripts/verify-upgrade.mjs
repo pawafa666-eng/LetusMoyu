@@ -13,8 +13,10 @@ for(const [i,a] of accounts.entries()){
  assert.equal(typeof session?.access_token,'string');
  const data=await post('/v1/functions/letusMoyu',session.access_token,{action:'state',payload:{},requestId:randomUUID()});
  assert.equal(data.ok,true,data.error);const s=data.state,p=s.players[s.self],other=Object.values(s.players).find(x=>x.id!==s.self);
- assert.equal(s.self,ids[i]);assert.equal(s.id,'62D133EFFA');assert.equal(s.rulesVersion,5);
+ assert.equal(s.self,ids[i]);assert.equal(s.id,'62D133EFFA');assert.equal(s.rulesVersion,6);
+ assert.ok(Array.isArray(p.assets));assert.ok(Array.isArray(p.procurement.orders));assert.equal(p.career.faculty,s.lab.level>=2);assert.equal(p.career.salaryRate,s.lab.level>=2?20:0);assert.ok(p.economy.salary.buffer<=500);
+ for(const st of p.students){assert.ok(st.wage.rate>=(st.degree==='phds'?2:1));assert.ok(st.wage.buffer<=100);}
  assert.ok(Array.isArray(p.inbox));assert.ok(Array.isArray(p.admissions.candidates));assert.equal(p.patent.total>=0,true);assert.equal(other.inbox,undefined);assert.equal(other.admissions.candidates,undefined);assert.equal(other.hand,undefined);
- console.log('PASS',a.username,'original identity + room preserved; v5 contracts, grants, inbox, portfolio, students and patent ready; partner private data hidden.');
+ console.log('PASS',a.username,'original identity + room preserved; v6 procurement, payroll, career, contracts, grants, inbox, portfolio, students and patent ready; partner private data hidden.');
  console.log('Snapshot',{version:s.version,position:p.position,actionCount:p.actionCount,projects:Object.keys(s.projects).length,pending:p.pending?.type||null,year:s.academicYearDays});
 }

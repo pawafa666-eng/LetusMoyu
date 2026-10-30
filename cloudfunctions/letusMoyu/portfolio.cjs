@@ -74,7 +74,7 @@ function createPortfolio({C,log,progress,check,HOUR}){
   initStudent(st);const def=Data.tasks.find(x=>x.id===type);check(def,'请选择有效的学生任务');check(!st.graduatedAt,'这位同学已毕业');
   check(!st.task||st.task.status==='completed','这位同学已有进行中的任务，请先完成或取消');if(!paid){check(p.funds>=def.cost,'科研经费不足');p.funds-=def.cost;}
   const initial=type==='paper'?st.paper.progress:type==='patent'?st.patent.progress:0;
-  if(['visit','conference'].includes(type))check(!st.contractWork,'这位同学正在做横向，请完成后再安排出行');
+  if(['visit','conference'].includes(type))check(!st.contractWork&&!st.procurementWork,'这位同学正在做横向或采购，请完成后再安排出行');
   st.task={id:randomUUID(),type,title:safe(rawTitle)||(['paper','patent'].includes(type)?title(p,type,p.portfolio[type==='paper'?'papers':'patents'].length+1,st,partner):type==='visit'?'云杉理工大学城市智能系统短期访学':type==='conference'?'城市智能与低空交叉学术报告':'多源研究数据分析小目标'),progress:initial,target:def.target||100,status:'working',createdAt:now,dueAt:def.hours?now+def.hours*HOUR:0,partner:!!partner};
   log(s,name(p)+' 给'+st.name+'安排了「'+st.task.title+'」。',now,'students');if(initial>=st.task.target)advance(s,p,st,0,now);
  }

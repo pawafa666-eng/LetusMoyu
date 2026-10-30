@@ -2,11 +2,11 @@
 const {randomUUID}=require('node:crypto');
 const Rules=require('./contract-content.cjs');
 const round=n=>Math.round(n*1e6)/1e6;
-function createContracts({C,check,log,progress,rate,HOUR}){
+function createContracts({C,check,log,progress,rate,HOUR,procurementBonus=()=>0}){
  function initialize(pr){if(pr.finance?.model!=='contract'||pr.contract)return;const remaining=Math.max(0,round(pr.finance.totalFunding-pr.finance.allocatedFunding));const names=Rules.stages[pr.def]||['确认研究需求','开展现场验证','整理研究结果','交付验收成果'];const amount=Math.floor(remaining/4);pr.finance.workCosts??=0;pr.finance.partnerPaid??=0;pr.contract={version:1,steps:remaining>0?names.map((title,i)=>({id:randomUUID(),title,payment:i===3?round(remaining-amount*3):amount,status:'available',job:null,completedAt:0,payouts:[]})):[]};if(remaining<=0)pr.completedAt=pr.completedAt||pr.lastAt;}
  function migrate(s){for(const p of Object.values(s.players)){p.contractWork??=null;p.contractIncome??=0;p.contractHistory??=[];for(const st of p.students){st.contractWork??=null;st.contractLoads??=[];st.studyWeights??=Array(st.studyBuffer||0).fill(1);}}for(const pr of Object.values(s.projects))initialize(pr);}
  function current(pr){return pr.contract?.steps.find(st=>st.status!=='done');}
- function quote(s,pr,mode,now){const def=Rules.modes.find(m=>m.id===mode);check(def,'请选择有效的横向执行方式');const efficiency=Math.max(0,Math.min(.3,rate(s,pr,now)/C.projects[pr.def].income-1));const step=current(pr);return{cost:Math.ceil(step.payment*def.costRate),duration:Math.ceil(def.hours*HOUR/(1+efficiency)/60000)*60000};}
+ function quote(s,pr,mode,now){const def=Rules.modes.find(m=>m.id===mode);check(def,'请选择有效的横向执行方式');const efficiency=Math.max(0,Math.min(.75,rate(s,pr,now)/C.projects[pr.def].income-1+procurementBonus(s,pr)));const step=current(pr);return{cost:Math.ceil(step.payment*def.costRate),duration:Math.ceil(def.hours*HOUR/(1+efficiency)/60000)*60000};}
  function workRef(pr,step,job){return{project:pr.def,stageId:step.id,jobId:job.id};}
  function release(s,pr,step,doneAt){const job=step.job;
   if(job.mode==='student'){const st=s.players[pr.owner].students.find(x=>x.id===job.studentId);if(st){if(st.contractWork?.jobId===job.id)st.contractWork=null;const load=st.contractLoads.find(x=>x.jobId===job.id);if(load)load.end=doneAt;st.wellbeing=Math.max(0,st.wellbeing-3);}}
@@ -23,7 +23,7 @@ function createContracts({C,check,log,progress,rate,HOUR}){
  }}
  function start(s,pr,step,mode,studentId,partnerId,share,now,prepared){
   const owner=s.players[pr.owner],q=prepared||quote(s,pr,mode,now);check(owner.funds>=q.cost,'科研经费不足，阶段材料或外协需要 '+q.cost);
-  let student=null;if(mode==='student'){student=owner.students.find(st=>st.id===studentId&&!st.graduatedAt);check(student,'请选择本组在读学生');check(!student.contractWork,'这位同学正在做其他横向');check(student.wellbeing>=35,'这位同学心情偏低，先聊聊近况再安排横向');check(!student.task||!['conference','visit'].includes(student.task.type)||student.task.status==='completed','这位同学正在参加活动或访学');}
+  let student=null;if(mode==='student'){student=owner.students.find(st=>st.id===studentId&&!st.graduatedAt);check(student,'请选择本组在读学生');check(!student.contractWork,'这位同学正在做其他横向');check(!student.procurementWork,'这位同学正在办理采购');check(student.wellbeing>=35,'这位同学心情偏低，先聊聊近况再安排横向');check(!student.task||!['conference','visit'].includes(student.task.type)||student.task.status==='completed','这位同学正在参加活动或访学');}
   const participants=mode==='coop'?[owner.id,partnerId]:[owner.id];if(mode==='self'||mode==='coop')for(const id of participants)check(s.players[id]&&!s.players[id].contractWork,(id===owner.id?'你':'搭子')+'正在处理另一份横向任务');
   const job={id:randomUUID(),mode,studentId:student?.id||null,studentName:student?.name||'',partnerId:partnerId||null,share:mode==='coop'?share:0,participants,cost:q.cost,duration:q.duration,elapsed:0,lastAt:now,startedAt:now,dueAt:now+q.duration+Math.max(0,...s.effects.filter(e=>e.type==='pause'&&e.project===pr.def&&e.target===pr.owner&&!e.done).map(e=>e.expires-now))};
   owner.funds=round(owner.funds-q.cost);pr.finance.workCosts=round((pr.finance.workCosts||0)+q.cost);step.status='working';step.job=job;

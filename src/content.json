@@ -1254,22 +1254,22 @@
       "rep": 8
     },
     {
-      "name": "数字孪生中心",
-      "funds": 2000,
-      "credits": 1,
-      "rep": 20
+      "name": "数字孪生研究中心",
+      "funds": 12000,
+      "credits": 4,
+      "rep": 40
     },
     {
-      "name": "低空交通与智能建造联合实验室",
-      "funds": 3800,
-      "credits": 3,
-      "rep": 35
+      "name": "低空交通与智能建造研究所",
+      "funds": 50000,
+      "credits": 12,
+      "rep": 100
     },
     {
-      "name": "未来城市科研中心",
-      "funds": 6000,
-      "credits": 5,
-      "rep": 50
+      "name": "未来城市院士课题组",
+      "funds": 180000,
+      "credits": 30,
+      "rep": 250
     }
   ],
   "contracts": {
@@ -1810,19 +1810,19 @@
       },
       {
         "level": 2,
-        "text": "项目经费 +5%；升级时双方各得 80 经费"
+        "text": "双方晋升副教授；各获 1000 启动经费；学校工资 20/小时，离线上限 500；改为研究所领导认可"
       },
       {
         "level": 3,
-        "text": "主要科研进度 +1；每学年硕士名额增加 1"
+        "text": "晋升教授，各获 12000 启动经费；在组上限 6，硕士指标 +1；教授招聘待解锁"
       },
       {
         "level": 4,
-        "text": "交叉项目再 +5%；博士名额增加 1；培养上限 5；专利审查缩至 1 小时"
+        "text": "研究所负责人，各获 30000 启动经费；在组上限 8、博士指标 +1；研究所分支与新园区待解锁"
       },
       {
         "level": 5,
-        "text": "培养上限 6；学生研究反馈额外进度 +1"
+        "text": "院士课题组带头人，各获 80000 启动经费；在组上限 12；教授下设学生待解锁"
       }
     ],
     "yearDays": 7,
@@ -1831,5 +1831,213 @@
       75,
       105
     ]
+  },
+  "operations": {
+    "catalog": [
+      {
+        "id": "sensor-basic",
+        "name": "基础结构监测套件",
+        "kind": "hardware",
+        "price": 1200,
+        "level": 1,
+        "domain": [
+          "civil"
+        ],
+        "speed": 0.05,
+        "rent": 5,
+        "data": 0,
+        "description": "入门监测，能接学校的基础采集共享单。"
+      },
+      {
+        "id": "data-lite",
+        "name": "研究数据整理软件",
+        "kind": "software",
+        "price": 1800,
+        "level": 1,
+        "domain": [
+          "civil",
+          "air",
+          "cross"
+        ],
+        "speed": 0,
+        "rent": 0,
+        "data": 4,
+        "description": "先把表格收拾好，每两小时可整理一份论文素材。"
+      },
+      {
+        "id": "uav-pro",
+        "name": "研究级无人机",
+        "kind": "hardware",
+        "price": 5000,
+        "level": 1,
+        "domain": [
+          "air",
+          "cross"
+        ],
+        "speed": 0.12,
+        "rent": 20,
+        "data": 6,
+        "description": "航线验证、桥梁补拍，也能承接学校航测共享。"
+      },
+      {
+        "id": "pointcloud-pro",
+        "name": "点云处理专业软件",
+        "kind": "software",
+        "price": 8000,
+        "level": 1,
+        "domain": [
+          "civil",
+          "cross"
+        ],
+        "speed": 0.18,
+        "rent": 0,
+        "data": 10,
+        "description": "配准、重建与缺陷样本整理，给智能建造搭把手。"
+      },
+      {
+        "id": "lidar-pro",
+        "name": "高精度激光雷达",
+        "kind": "hardware",
+        "price": 12000,
+        "level": 2,
+        "domain": [
+          "civil",
+          "cross"
+        ],
+        "speed": 0.24,
+        "rent": 45,
+        "data": 12,
+        "description": "把复杂现场装进点云，学校共享平台也在排队。"
+      },
+      {
+        "id": "simulation-suite",
+        "name": "低空与结构仿真软件",
+        "kind": "software",
+        "price": 16000,
+        "level": 2,
+        "domain": [
+          "civil",
+          "air",
+          "cross"
+        ],
+        "speed": 0.3,
+        "rent": 0,
+        "data": 16,
+        "description": "多源仿真与验证工具，适配空地交叉课题。"
+      },
+      {
+        "id": "gpu-cluster",
+        "name": "科研 GPU 算力服务器",
+        "kind": "hardware",
+        "price": 22000,
+        "level": 2,
+        "domain": [
+          "civil",
+          "air",
+          "cross"
+        ],
+        "speed": 0.34,
+        "rent": 85,
+        "data": 18,
+        "description": "训练、计算与数据处理；切到学校算力共享可收租。"
+      },
+      {
+        "id": "inspection-robot",
+        "name": "自主巡检机器人",
+        "kind": "hardware",
+        "price": 28000,
+        "level": 2,
+        "domain": [
+          "civil",
+          "cross"
+        ],
+        "speed": 0.4,
+        "rent": 110,
+        "data": 20,
+        "description": "隧道、地下空间与桥梁的多源巡检搭档。"
+      },
+      {
+        "id": "twin-platform",
+        "name": "空地数字孪生共享平台",
+        "kind": "software",
+        "price": 36000,
+        "level": 3,
+        "domain": [
+          "civil",
+          "air",
+          "cross"
+        ],
+        "speed": 0.45,
+        "rent": 140,
+        "data": 22,
+        "description": "完整共享许可，科研协同或提供校内平台服务。"
+      },
+      {
+        "id": "uav-lidar",
+        "name": "无人机激光雷达一体系统",
+        "kind": "hardware",
+        "price": 48000,
+        "level": 3,
+        "domain": [
+          "civil",
+          "air",
+          "cross"
+        ],
+        "speed": 0.5,
+        "rent": 190,
+        "data": 26,
+        "description": "航测、重建、监测与共享一体化，贵得很有存在感。"
+      }
+    ],
+    "suppliers": [
+      {
+        "id": "budget",
+        "name": "慢慢来仪器社",
+        "multiplier": 0.93,
+        "time": 1.2,
+        "note": "报价省 7%，流程时间多 20%；材料慢慢装订。"
+      },
+      {
+        "id": "standard",
+        "name": "不急科研供应站",
+        "multiplier": 1,
+        "time": 1,
+        "note": "标准报价，流程稳稳推进。"
+      },
+      {
+        "id": "service",
+        "name": "今天就办技术服务",
+        "multiplier": 1.12,
+        "time": 0.75,
+        "note": "报价多 12%，流程时间少 25%；专人整理材料。"
+      }
+    ],
+    "stages": [
+      "寻找供应商",
+      "招标与比选",
+      "签订采购合同",
+      "研究所领导签字",
+      "设备到货与软件交付",
+      "验收与测试",
+      "资产建账"
+    ],
+    "careers": [
+      "博士研究生",
+      "副教授",
+      "教授",
+      "研究所负责人",
+      "院士课题组带头人"
+    ],
+    "grants": [
+      0,
+      1000,
+      12000,
+      30000,
+      80000
+    ],
+    "salaryRate": 20,
+    "salaryCap": 500,
+    "wageCap": 100,
+    "rentCap": 1000
   }
 }

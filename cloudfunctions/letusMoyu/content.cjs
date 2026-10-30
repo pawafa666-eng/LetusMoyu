@@ -82,8 +82,8 @@ const cards=[
 const lab=[
  {name:'普通实验室',funds:0,credits:0,rep:0},
  {name:'智能建造实验室',funds:800,credits:0,rep:8},
- {name:'数字孪生中心',funds:2000,credits:1,rep:20},
- {name:'低空交通与智能建造联合实验室',funds:3800,credits:3,rep:35},
- {name:'未来城市科研中心',funds:6000,credits:5,rep:50}
+ {name:'数字孪生研究中心',funds:12000,credits:4,rep:40},
+ {name:'低空交通与智能建造研究所',funds:50000,credits:12,rep:100},
+ {name:'未来城市院士课题组',funds:180000,credits:30,rep:250}
 ];
-module.exports={tiles,projects,equipment,events,cards,lab,contracts:require('./contract-content.cjs'),research:require('./research-data-v4.cjs')};
+module.exports={tiles,projects,equipment,events,cards,lab,contracts:require('./contract-content.cjs'),research:require('./research-data-v4.cjs'),operations:require('./operations-content.cjs')};

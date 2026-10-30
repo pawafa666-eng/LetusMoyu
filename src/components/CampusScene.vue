@@ -51,7 +51,7 @@ function draw(time:number){
  }
  if(!reduced){const phase=time*.00018;drone.position.set(Math.sin(phase)*3.4,2.3+Math.sin(phase*3)*.1,Math.cos(phase)*1.65);drone.rotation.y=phase;rover.position.x=Math.sin(phase*.8)*2.2}
  controls.update()
- const rect=host.value?.getBoundingClientRect();if(rect)labels.value=content.tiles.map(tile=>{const v=tilePosition(tile.id);v.y=1.18;v.project(camera);return {x:(v.x*.5+.5)*rect.width,y:(-.5*v.y+.5)*rect.height,name:tile.name}})
+ const rect=host.value?.getBoundingClientRect();if(rect)labels.value=content.tiles.map(tile=>{const v=tilePosition(tile.id);v.y=1.18;v.project(camera);return {x:(v.x*.5+.5)*rect.width,y:(-.5*v.y+.5)*rect.height,name:props.state.lab.level>=2?tile.name.replaceAll('导师','研究所领导'):tile.name}})
  renderer.render(scene,camera)
 }
 function fit(){

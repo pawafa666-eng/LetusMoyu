@@ -5,6 +5,7 @@ import content from '../content.json'
 import type {RoomState} from '../types'
 import CampusArt from './CampusArt.vue'
 const props=defineProps<{state:RoomState}>()
+const placeName=(name:string)=>props.state.lab.level>=2?name.replaceAll('导师','研究所领导'):name
 const selected=ref<number|null>(null)
 const tile=computed(()=>selected.value===null?null:content.tiles[selected.value])
 const icons:Record<string,typeof Building2>={start:Flag,library:BookOpen,mentor:GraduationCap,equipment:Satellite,rest:Coffee,lab:FlaskConical,coffee:Coffee,paper:BookOpen,commute:TrainFront,poster:Presentation,card:ShoppingBag,boss:GraduationCap}
@@ -27,13 +28,13 @@ const people=computed(()=>Object.values(props.state.players))
   <button v-for="t in content.tiles" :key="t.id" class="tile" :class="[t.type,{owned:!!owner(t.id),mine:owner(t.id)===state.self,here:people.some(p=>p.position===t.id),selected:selected===t.id}]" :style="placement(t.id)" :aria-label="(t.id+1)+'号，'+t.name" @click="selected=selected===t.id?null:t.id">
    <span class="tile-number">{{ String(t.id+1).padStart(2,'0') }}</span>
    <component :is="icon(t)" :size="22" :stroke-width="1.6"/>
-   <span class="tile-title">{{ t.name }}</span>
+   <span class="tile-title">{{ placeName(t.name) }}</span>
    <span v-if="owner(t.id)" class="owner-ribbon">{{ state.players[owner(t.id)!]?.name }}</span>
    <span class="map-players"><span v-for="p in people.filter(x=>x.position===t.id)" :key="p.id" :class="['pawn',p.discipline]" :title="p.name"><i/></span></span>
   </button>
  </div></div>
  <div v-if="tile" class="tile-inspector">
-  <span><b>{{ tile.name }}</b><small v-if="tile.project!==null">{{ content.projects[tile.project]?.kind==='contract'?'合同总额 '+content.projects[tile.project]?.totalFunding+' · 四阶段任务验收拨款':'基础收益 '+content.projects[tile.project]?.income+' 经费 / 2 小时 · 设施投入 '+content.projects[tile.project]?.cost }}</small><small v-else>走到这里就能遇见园区的小故事。点击格子只查看信息。</small></span>
+  <span><b>{{ placeName(tile.name) }}</b><small v-if="tile.project!==null">{{ content.projects[tile.project]?.kind==='contract'?'合同总额 '+content.projects[tile.project]?.totalFunding+' · 四阶段任务验收拨款':'基础收益 '+content.projects[tile.project]?.income+' 经费 / 2 小时 · 设施投入 '+content.projects[tile.project]?.cost }}</small><small v-else>走到这里就能遇见园区的小故事。点击格子只查看信息。</small></span>
   <button class="text-button" @click="selected=null">收起</button>
  </div>
 </template>

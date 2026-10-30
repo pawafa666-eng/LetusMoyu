@@ -19,7 +19,7 @@ const chapters=[
  {name:'论文与专利',title:'Accept 不只是一个好听的单词。',tag:'04 / SMALL RESULTS, REAL REWARDS',body:'论文达到 100 进度即可投稿。正式游戏会经历审稿、返修或接收，没有返修期限。先来体验一次简化的 Accept。'},
  {name:'和搭子互动',title:'给搭子留点故事，TA 晚点也能收到。',tag:'05 / LEAVE SOMETHING FOR YOUR PARTNER',body:'每次移动后可以用一张科研卡。不需要两人同时在线，对方再打开时就能看到效果和园区动态。合作与互坑都来一点。'},
  {name:'来信与学生',title:'地图以外，也有人惦记着你的科研。',tag:'06 / SOMETHING HAPPENS WHILE YOU ARE AWAY',body:'邮箱每 75–105 分钟来一封虚构邮件，合作邀约和离谱广告都有。还能招学生，看看研究进展，也听听同学最近顺不顺。'},
- {name:'一起获胜',title:'共同建成未来城市科研中心，两个人都赢。',tag:'07 / TWO RESEARCHERS, ONE SHARED VICTORY',body:'经费、论文成果点、科研声望，一起投入联合实验室。达到五级，就完成本局共同目标。个人声望可以比较，胜利由两个人共享。'}
+ {name:'一起获胜',title:'共同建成未来城市院士课题组，两个人都赢。',tag:'07 / TWO RESEARCHERS, ONE SHARED VICTORY',body:'经费、论文成果点、科研声望，一起投入联合实验室。达到五级，就完成本局共同目标。个人声望可以比较，胜利由两个人共享。'}
 ]
 const chapter=computed(()=>chapters[step.value]!),finalGoal=content.lab[4]!
 const percent=computed(()=>won.value?100:myGift.value||partnerGift.value?50:0)
@@ -66,7 +66,7 @@ async function contribute(who:'me'|'partner'){
  if(!myGift.value||!partnerGift.value){say('一半材料到位，等搭子补上另一半。不必同时在线。');return}
  busy.value=true;showWorld()
  for(let level=2;level<=5;level++){await wait(500);if(disposed)return;campus.value.lab.level=level;campus.value.version++;say('联合实验室升级：'+content.lab[level-1]!.name)}
- won.value=true;done.value[6]=true;busy.value=false;say('联合胜利！未来城市科研中心落成。通关以后，仍然可以接项目、发表论文和给搭子留故事。')
+ won.value=true;done.value[6]=true;busy.value=false;say('联合胜利！未来城市院士课题组落成。通关以后，仍然可以接项目、发表论文和给搭子留故事。')
 }
 onMounted(()=>dialog.value?.showModal())
 onBeforeUnmount(()=>{disposed=true;for(const [timer,resolve] of sleepers){clearTimeout(timer);resolve()}sleepers.clear();dice.value?.cancel()})
@@ -75,7 +75,7 @@ onBeforeUnmount(()=>{disposed=true;for(const [timer,resolve] of sleepers){clearT
  <dialog ref="dialog" class="tutorial-dialog" aria-labelledby="tutorial-title" @cancel.prevent="emit('close',won)">
   <div class="tutorial-top"><span><FlaskConical :size="19"/><b>新手演练园区</b><small>可交互动画 · 不消耗正式资源</small></span><button class="icon-button" aria-label="关闭新手教程" @click="emit('close',won)"><X :size="19"/></button></div>
   <nav class="tutorial-chapters" aria-label="教程章节"><button v-for="(item,i) in chapters" :key="i" :class="{active:step===i,complete:done[i]}" :disabled="busy" @click="change(i)"><i><Check v-if="done[i]" :size="12"/><template v-else>{{ i+1 }}</template></i><span>{{ item.name }}</span></button></nav>
-  <div class="tutorial-layout"><section class="tutorial-visual"><div class="tutorial-world"><Scene v-if="!fallback" ref="scene" :state="campus" @unavailable="fallback=true"/><CampusArt v-else/><div v-if="won" class="demo-win"><Trophy :size="36"/><strong>两位博士，联合胜利。</strong><small>未来城市科研中心 · Lv.5</small></div></div><div class="demo-resources"><span :key="'f'+funds"><Coins :size="15"/>{{ funds }}<small>演练经费</small></span><span :key="'e'+energy"><Zap :size="15"/>{{ energy }} / 5<small>行动力</small></span><span :key="'m'+mood"><Heart :size="15"/>{{ mood }}<small>心情</small></span></div><div :key="feedback" class="demo-feedback" role="status"><span class="note-dot"/>{{ feedback }}</div></section>
+  <div class="tutorial-layout"><section class="tutorial-visual"><div class="tutorial-world"><Scene v-if="!fallback" ref="scene" :state="campus" @unavailable="fallback=true"/><CampusArt v-else/><div v-if="won" class="demo-win"><Trophy :size="36"/><strong>两位博士，联合胜利。</strong><small>未来城市院士课题组 · Lv.5</small></div></div><div class="demo-resources"><span :key="'f'+funds"><Coins :size="15"/>{{ funds }}<small>演练经费</small></span><span :key="'e'+energy"><Zap :size="15"/>{{ energy }} / 5<small>行动力</small></span><span :key="'m'+mood"><Heart :size="15"/>{{ mood }}<small>心情</small></span></div><div :key="feedback" class="demo-feedback" role="status"><span class="note-dot"/>{{ feedback }}</div></section>
    <section class="tutorial-content"><span class="eyebrow">{{ chapter.tag }}</span><h1 id="tutorial-title">{{ chapter.title }}</h1><p class="tutorial-intro">{{ chapter.body }}</p>
     <div v-if="step===0" class="tutorial-actions"><div class="tutorial-role civil"><span class="tutorial-scholar">f</span><div><b>fafa · 智能建造</b><small>隧道、桥梁、点云、巡检机器人</small></div></div><div class="tutorial-role air"><span class="tutorial-scholar">y</span><div><b>Yizi · 低空经济</b><small>无人机、物流、低空通信、空地协同</small></div></div><div class="tutorial-tip"><Clock3 :size="16"/>每次花 30 秒到 3 分钟。没有签到奖励，不用保持在线。</div><button class="primary wide" @click="change(1)">亲手玩一回<Play :size="17"/></button></div>
     <div v-else-if="step===1" class="tutorial-actions"><div class="tutorial-tip">行动力每现实 30 分钟恢复 1 点，最多存 5 点。骰子结果先保存，再播放动画。</div><button class="primary wide" :disabled="busy||done[1]" @click="roll"><Dice5 :size="20"/>{{ busy?'小博士正在出发…':done[1]?'已到达 · 行动力剩 4 点':'掷一次骰子' }}</button><div v-if="done[1]" class="demo-result"><Check :size="17"/>到达第 4 格：隧道试验基地。<small>退出页面再来，位置和未完成的选择都还在。</small></div></div>

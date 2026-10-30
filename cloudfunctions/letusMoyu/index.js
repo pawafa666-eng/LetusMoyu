@@ -14,7 +14,7 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const decode=doc=>JSON.parse(doc.state);
 const cleanError=error=>{
  const message=error instanceof Error?error.message:'操作未完成';
- return /^(你|这|先|对方|搭子|科研|设备|行动|每|今天|同名|最多|论文|进度|已经|可用|请选择|请输入|贡献|路线|未知|请求|服务|只|园区|邀请码|本学年|课题组|刚刚|专利|研究|邮件|会话|收件|发件|当前|代表作|资源|横向|合同|阶段|经费)/.test(message)?message:'网络或云服务暂时未能保存，请重试；已成功的操作不会重复扣款。';
+ return /^(你|这|先|对方|搭子|科研|设备|行动|每|今天|同名|最多|论文|进度|已经|可用|请选择|请输入|贡献|路线|未知|请求|服务|只|园区|邀请码|本学年|课题组|刚刚|专利|研究|邮件|会话|收件|发件|当前|代表作|资源|横向|合同|阶段|经费|劳务|采购|资产|已经)/.test(message)?message:'网络或云服务暂时未能保存，请重试；已成功的操作不会重复扣款。';
 };
 exports.main=async(event)=>{
  const identity=app.auth().getUserInfo();
@@ -23,7 +23,7 @@ exports.main=async(event)=>{
  try{
   if(!event||typeof event!=='object'||Array.isArray(event))throw new Error('请求格式无效');
   const action=String(event.action||'state');
-  const actions=['state','export','create','join','move','resolve','card','submit','contribute','equip','mail_read','mail_reply','student_hire','student_care','student_graduate','patent_work','patent_submit','paper_configure','profile_update','representatives','student_task','student_plan','student_cancel','contract_start','contract_respond','contract_cancel','contract_claim',...Correspondence.queries,...Correspondence.actions];
+  const actions=['state','export','create','join','move','resolve','card','submit','contribute','equip','mail_read','mail_reply','student_hire','student_care','student_graduate','patent_work','patent_submit','paper_configure','profile_update','representatives','student_task','student_plan','student_cancel','contract_start','contract_respond','contract_cancel','contract_claim','procure_create','procure_start','procure_confirm','procure_cancel','asset_mode','asset_data','student_wage',...Correspondence.queries,...Correspondence.actions];
   if(!actions.includes(action))throw new Error('未知操作');
   const payload=event.payload&&typeof event.payload==='object'&&!Array.isArray(event.payload)?event.payload:{};
   const requestId=String(event.requestId||'');

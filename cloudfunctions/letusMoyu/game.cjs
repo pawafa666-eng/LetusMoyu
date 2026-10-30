@@ -6,7 +6,10 @@ const MIN=60_000, HOUR=60*MIN, CYCLE=2*HOUR;
 const random=()=>randomInt(0,0x100000000)/0x100000000;
 const clamp=(n,lo,hi)=>Math.max(lo,Math.min(hi,n));
 function check(ok,message){if(!ok)throw new Error(message);}
-function log(s,text,now,kind='research',actors){Feed.push(s,text,now,kind,actors);}
+function log(s,text,now,kind='research',actors){
+ if(s.lab.level>=2&&['research','paper','interaction','move','movement'].includes(kind)){const actor=Object.values(s.players).find(p=>text.startsWith(p.name+' ')||text.startsWith(p.name+'：')),prefix=actor?.name||'';text=prefix+text.slice(prefix.length).replaceAll('导师','研究所领导');}
+ Feed.push(s,text,now,kind,actors);
+}
 function other(s,p){return Object.values(s.players).find(x=>x.id!==p.id);}
 function player(id,name,discipline,now){
  return {id,name:name.trim().slice(0,16)||'匿名博士',discipline,funds:700,energy:5,energyAt:now,position:0,
@@ -17,12 +20,12 @@ function player(id,name,discipline,now){
 function createRoom(id,uid,name,discipline,now){
  check(['civil','air'].includes(discipline),'请选择研究方向');
  const s={id,rulesVersion:1,version:0,createdAt:now,players:{[uid]:player(uid,name,discipline,now)},projects:{},effects:[],feed:[],lab:{level:1,funds:0,credits:0,rep:0}};
- Research.migrate(s,now);Contracts.migrate(s);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
+ Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
 }
 function join(s,uid,name,now){
  check(!s.players[uid],'你已经在园区里了');check(Object.keys(s.players).length<2,'这个园区已经有两位博士了');
  const first=Object.values(s.players)[0];s.players[uid]=player(uid,name,first.discipline==='civil'?'air':'civil',now);
- Research.migrate(s,now);Contracts.migrate(s);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
+ Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
 }
 function progress(p,amount){
  if(amount<=0)return;
@@ -112,7 +115,7 @@ function settle(s,now){
  if(s.rulesVersion<2)for(const pr of Object.values(s.projects))settleProject(s,pr,now);
  Research.migrate(s,now);
  for(const pr of Object.values(s.projects))if(!pr.finance)pr.finance={model:'facility',initialInvestment:Math.round(C.projects[pr.def].cost*(s.players[pr.owner].discipline==='civil'&&C.projects[pr.def].domain==='civil'?.9:1)),totalFunding:0,advance:0,allocatedFunding:0,receivedFunding:0,operatingIncome:0,legacy:true};
- Contracts.settle(s,now);
+ Operations.settle(s,now);Contracts.settle(s,now);
  for(const p of Object.values(s.players)){
   if(p.energy<5){const ticks=Math.max(0,Math.floor((now-p.energyAt)/(30*MIN)));if(ticks){p.energy=Math.min(5,p.energy+ticks);p.energyAt=p.energy===5?now:p.energyAt+ticks*30*MIN;}}
  }
@@ -128,7 +131,7 @@ function claim(s,p,now){
   for(const b of pr.stock){funds+=b.funds;paper+=b.progress;if(pr.finance){pr.finance.operatingIncome=Math.round((pr.finance.operatingIncome+b.funds)*1e6)/1e6;if(pr.finance.model==='contract')pr.finance.receivedFunding=Math.round((pr.finance.receivedFunding+b.funds)*1e6)/1e6;}}pr.stock=[];
  }
  if(funds||paper){p.funds=Math.round((p.funds+funds)*1e6)/1e6;progress(p,paper);log(s,p.name+' 收到了项目产出：经费 +'+Math.floor(funds)+'，进度 +'+paper+'。',now,'income');}
- Research.claim(s,p,now);
+ Research.claim(s,p,now);Operations.claim(s,p,now);
  return {funds,paper};
 }
 function takeEnergy(p,now,amount=1){check(p.energy>=amount,'行动力还在路上，休息一下再来');if(p.energy===5)p.energyAt=now;p.energy-=amount;}
@@ -303,10 +306,11 @@ function execute(s,uid,action,payload,now=Date.now(),rng=random){
  else if(action==='contribute')contribute(s,p,payload.kind,Number(payload.amount),now);
  else if(action==='equip'){
   check(Array.isArray(payload.items)&&payload.items.length<=2&&new Set(payload.items).size===payload.items.length&&payload.items.every(x=>p.equipment.includes(x)),'最多启用两件已有设备');p.active=[...payload.items];
- }else if(!Contracts.dispatch(s,p,action,payload,now)&&!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
+ }else if(!Operations.dispatch(s,p,action,payload,now)&&!Contracts.dispatch(s,p,action,payload,now)&&!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
  return view(s,uid,now);
 }
 function view(s,uid,now){
+ Operations.migrate(s,now);
  const result=JSON.parse(JSON.stringify(s));result.self=uid;result.serverNow=now;
  for(const pr of Object.values(result.projects)){const step=Contracts.current(pr);if(step?.status==='available'&&pr.owner===uid)pr.contract.quotes=Object.fromEntries(require('./contract-content.cjs').modes.map(m=>[m.id,Contracts.quote(s,s.projects[pr.def],m.id,now)]));}
  for(const p of Object.values(result.players)){delete p.paper.reviewRoll;
@@ -318,6 +322,7 @@ function view(s,uid,now){
  }
  return result;
 }
-const Research=require('./research.cjs').createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight:(st,start,end)=>Contracts.researchWeight(st,start,end)});
-const Contracts=require('./contracts.cjs').createContracts({C,check,log,progress,rate,HOUR});
-module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,reward,log,Research,Contracts};
+const Research=require('./research.cjs').createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight:(st,start,end)=>Contracts.researchWeight(st,start,end),onLabUpgrade:(s,level,now)=>Operations.promote(s,level,now)});
+const Contracts=require('./contracts.cjs').createContracts({C,check,log,progress,rate,HOUR,procurementBonus:(s,pr)=>Operations.bonus(s.players[pr.owner],C.projects[pr.def].domain)});
+const Operations=require('./operations.cjs').createOperations({check,log,progress,HOUR});
+module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,reward,log,Research,Contracts,Operations};

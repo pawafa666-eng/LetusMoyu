@@ -3,13 +3,13 @@ const {randomUUID,createHash,randomInt}=require('node:crypto');
 const Data=require('./research-data-v4.cjs');
 const seed=s=>createHash('sha256').update(s).digest().readUInt32LE(0)/0x100000000;
 const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
-function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=>1}){
+function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=>1,onLabUpgrade=()=>{}}){
  const Portfolio=require('./portfolio.cjs').createPortfolio({C,log,progress,check,HOUR});
  function year(s,now){
   if(s.academicYearDays===0)return new Date(now+8*HOUR).getUTCFullYear();
   return 1+Math.max(0,Math.floor((now-s.createdAt)/(s.academicYearDays*24*HOUR)));
  }
- function quota(s){return {masters:s.lab.level>=3?3:2,phds:s.lab.level>=4?2:1,capacity:s.lab.level>=5?6:s.lab.level>=4?5:4};}
+ function quota(s){return {masters:s.lab.level>=3?3:2,phds:s.lab.level>=4?2:1,capacity:s.lab.level>=5?12:s.lab.level>=4?8:s.lab.level>=3?6:4};}
  function candidates(p,currentYear){
   const names=['小林','小周','小鹿','小许','小程','小陈','小季','小苏','小岳','小乔'];
   const topics=p.discipline==='civil'?['隧道点云配准','机器人巡检','无人机桥梁建模','结构传感监测','城市数字孪生']:['低空物流航线','起降场规划','空地协同感知','低空通信链路','无人机三维重建'];
@@ -33,7 +33,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
    syncYear(s,p,now);Portfolio.migrate(s,p,now);
    for(const m of p.inbox)if(!m.rules&&Data.mailTemplates.some(t=>t.id===m.template))m.rules=structuredClone(Data.mailTemplates.find(t=>t.id===m.template));
   }
-  require('./feed.cjs').migrate(s);s.rulesVersion=5;
+  require('./feed.cjs').migrate(s);s.rulesVersion=6;
  }
  function addIdeas(p,amount){if(p.patent?.phase==='draft')p.patent.progress=clamp(p.patent.progress+amount,0,60);}
  function bonus(p){return p.researchVersion?Math.min(.12,p.papers*.02+p.patent.total*.02+p.graduates*.01):0;}
@@ -79,7 +79,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
   if(gained){gained=Math.round(gained*10)/10;progress(p,gained);p.paper.progress=Math.round(p.paper.progress*10)/10;p.paper.bank=Math.round(p.paper.bank*10)/10;log(s,p.name+' 收到学生的研究反馈，论文进度 +'+gained+'。',now,'students');}
  }
  function paperAccepted(s,p,now,manuscript={}){addIdeas(p,12);draw(p);Portfolio.recordPaper(s,p,now,{title:manuscript.title,...manuscript.collaborators},true);}
- function labUpgraded(s,level,now){for(const p of Object.values(s.players)){p.funds+=level*40;p.mood=clamp(p.mood+8,0,100);addIdeas(p,5);}log(s,'升级福利：双方各得 '+level*40+' 经费、8 心情、5 专利灵感；新能力已生效。',now,'lab');}
+ function labUpgraded(s,level,now){onLabUpgrade(s,level,now);for(const p of Object.values(s.players)){p.mood=clamp(p.mood+8,0,100);addIdeas(p,5);}log(s,'升级福利：双方心情 +8、专利灵感 +5；启动经费与新职称已生效。',now,'lab');}
  function chooseMail(s,p,mail,payload,now,rng=()=>randomInt(0,0x100000000)/0x100000000){
   check(mail,'这封邮件不存在');check(!mail.repliedAt,'这封邮件已经回复过了');
   const template=mail.rules||Data.mailTemplates.find(m=>m.id===mail.template),index=Number(payload.choice),option=template?.choices[index];check(Number.isInteger(index)&&option,'请选择有效的回复');
@@ -125,7 +125,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
  }
  function graduate(s,p,payload,now){
   const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt);check(st,'这位同学已经毕业或不在课题组');check(st.progress>=st.target,'研究还没到终点，继续陪同学一点点做');check(st.wellbeing>=40,'先关心一下同学的状态，再准备毕业');
-  check(!st.contractWork,'先完成同学的横向任务，再安排毕业');check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';p.funds+=phd?200:120;p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
+  check(!st.contractWork,'先完成同学的横向任务，再安排毕业');check(!st.procurementWork,'先完成同学的采购流程，再安排毕业');check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';p.funds+=phd?200:120;p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
   log(s,st.name+' 顺利毕业！'+p.name+' 获得经费、声望和研究灵感，培养成果计入长期收益。',now,'students');
   if(p.students.length>36)p.students=p.students.filter(x=>!x.graduatedAt).concat(p.students.filter(x=>x.graduatedAt).slice(-24));
  }

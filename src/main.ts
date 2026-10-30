@@ -10,3 +10,4 @@ import './tutorial.css'
 import './v4.css'
 
 import './v5.css'
+import './v6.css'

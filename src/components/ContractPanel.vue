@@ -18,7 +18,7 @@ const completed=(pr:Project)=>pr.contract?.steps.filter(st=>st.status==='done').
 const money=(n:number|undefined)=>Math.floor(n||0).toLocaleString()
 function duration(ms:number|undefined){const min=Math.max(0,Math.ceil((ms||0)/60000));return min>=60?Math.floor(min/60)+' 小时'+(min%60?' '+min%60+' 分钟':''):min+' 分钟'}
 function canAssign(pr:Project){const q=quote(pr,mode(pr));return !props.busy&&!!q&&props.player.funds>=q.cost&&(!(mode(pr)==='self'||mode(pr)==='coop')||!props.player.contractWork)&&(mode(pr)!=='student'||!!students.value[pr.def])&&(mode(pr)!=='coop'||!!partner.value)}
-function studentUnavailable(st:Player['students'][number]){return!!st.contractWork||st.wellbeing<35||!!st.task&&['conference','visit'].includes(st.task.type)&&st.task.status!=='completed'}
+function studentUnavailable(st:Player['students'][number]){return!!st.contractWork||!!st.procurementWork||st.wellbeing<35||!!st.task&&['conference','visit'].includes(st.task.type)&&st.task.status!=='completed'}
 async function start(pr:Project,step:ContractStep){await props.perform('contract_start',{project:pr.def,stageId:step.id,mode:mode(pr),studentId:students.value[pr.def],share:share(pr)})}
 function progress(st:ContractStep){const job=st.job;if(!job?.duration||!job.dueAt)return 0;return Math.max(0,Math.min(100,(job.duration-(job.dueAt-props.now))/job.duration*100))}
 </script>

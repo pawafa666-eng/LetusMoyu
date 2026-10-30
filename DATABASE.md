@@ -55,3 +55,15 @@ v0.4 自动补齐旧论文和专利的虚拟标题，不给历史成果伪造学
 - thread.messages[].grant：资源 UUID，f / r / p 三项整数、claimedAt / claimedBy 和实际到账 actual；仅 NPC 消息可由信务管理员创建。资源上限为 5000 经费、50 声望、100 论文进度。
 
 新命令为 contract_start / contract_respond / contract_cancel / contract_claim，以及 letter_reward。全部通过原有云函数的原生 UID 校验、请求 UUID 幂等和数据库事务处理。领取附件会将玩家余额、消息领取状态、邮件回执和请求凭证一并提交；验收会将双方拨款、阶段完成状态、动态和请求凭证一并提交。重试、并发及再次点击不能重复拨款。
+
+## v0.6 字段与兼容
+
+rulesVersion=6，沿用原集合、权限和原生账号。迁移保留等级、资金、旧背包设备、项目和成果；工资/租费/劳务的新时钟从迁移时开始，不按旧存档创建时间补发或补扣，历史升级奖也不补领。
+
+- players[uid].career：按当前联合实验室级别生成的职称、faculty、salaryRate 与领导称呼。
+- economy：salary（lastAt / buffer / total）、开始发薪时间、上次采集数据时间、累计已发劳务、按小时合并的入账和支出汇总。工资待领上限 500。
+- procurement.orders：采购 UUID、目录 ID、七步阶段、状态、供应商、固定报价、已付款、当前 job、历史流程和完成时间。job 保存办理人、学生 UID 与服务器截止时间；一位老师仅一份在办单。
+- assets：资产 UUID、目录 ID、订单 UUID、采购价、建账时间、科研/租赁模式、租赁 lastAt / buffer / total，每台待领上限 1000。不将原随身小设备免费转为大型资产。
+- students[].wage：rate / lastAt / buffer / total，最低硕士 1、博士 2，每人待发上限 100。待发不足时按比例分配可用整数经费，余款保留。procurementWork 保存订单与 job UUID，供横向、活动和毕业互斥检查。
+
+新增动作 procure_create / procure_start / procure_confirm / procure_cancel / asset_mode / asset_data / student_wage。供应商报价和阶段时间取服务端目录，客户端不能自报价格、截止时间或学校工资。付款、流程状态、建账、双方升级与工资/劳务结算都在原有房间事务内完成，沿用请求 UUID 防重和滚动快照。

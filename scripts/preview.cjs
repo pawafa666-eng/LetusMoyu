@@ -16,6 +16,12 @@ module.exports=function previewServer(){
  for(const [def,owner]of [[5,uid],[3,'preview-air']])s.projects[def]={def,owner,lastAt:now,signedAt:now,elapsed:0,value:0,stock:[],finance:{model:'contract',totalFunding:G.C.projects[def].totalFunding,advance:0,allocatedFunding:0,receivedFunding:0,operatingIncome:0,initialInvestment:0}};
  G.Contracts.migrate(s);G.execute(s,uid,'contract_start',{project:5,stageId:G.Contracts.current(s.projects[5]).id,mode:'outsource'},now-3*G.HOUR);G.settle(s,now);
  G.execute(s,'preview-air','contract_start',{project:3,stageId:G.Contracts.current(s.projects[3]).id,mode:'coop',share:30},now);
+ s.lab.level=2;G.Operations.promote(s,2,now);p.funds=60000;
+ G.Operations.dispatch(s,p,'procure_create',{sku:'uav-pro'},now-16*G.HOUR);
+ const order=G.Operations.current(p);let procAt=now-14*G.HOUR;
+ for(let stage=0;stage<7;stage++){G.Operations.dispatch(s,p,'procure_start',{id:order.id,stage,mode:'self',supplier:'standard'},procAt);procAt=order.job.dueAt;G.Operations.settle(s,procAt);if(stage<6)G.Operations.dispatch(s,p,'procure_confirm',{id:order.id,stage},procAt);}
+ for(const actor of Object.values(s.players)){actor.economy.salary.buffer=500;actor.economy.salary.lastAt=now;}
+ for(const st of p.students){st.wage.buffer=100;st.wage.lastAt=now;}
  const receipts=new Map(),rows=new Map(),read=async(tx,col,id)=>col==='letus_moyu_members'?{roomId:s.id}:col==='letus_moyu_rooms'?{state:JSON.stringify(s)}:rows.get(col+':'+id)||null;
  const db={collection(col){let filter={},offset=0,size=40;const q={doc(id){return{async set(v){rows.set(col+':'+id,v)}}},where(w){filter=w;return q},orderBy(){return q},skip(n){offset=n;return q},limit(n){size=n;return q},async get(){return{data:[...rows.entries()].filter(([k,v])=>k.startsWith(col+':')&&Object.entries(filter).every(([f,x])=>v[f]===x)).map(x=>x[1]).sort((a,b)=>b.updatedAt-a.updatedAt).slice(offset,offset+size)}}};return q}};
  const mail=Correspondence.createMailService({Game:G,db,read,adminUids:new Set([uid])});

@@ -10,7 +10,7 @@ const pending=computed(()=>props.player.pending!)
 const project=computed(()=>content.projects[pending.value.project??0])
 const event=computed(()=>content.events[pending.value.event??0])
 const cost=computed(()=>project.value.kind==='contract'?0:Math.round(project.value.cost*(props.player.discipline==='civil'&&project.value.domain==='civil'?.9:1)))
-const title=computed(()=>({project:'这项课题，要不要接下来？',equipment:'设备比人先到位',route:'今天，换条科研路线',library:'文献看不完，先看一点',coffee:'咖啡与科研的有效碰撞'}[pending.value.type]||event.value.title))
+const title=computed(()=>({project:'这项课题，要不要接下来？',equipment:'设备比人先到位',route:'今天，换条科研路线',library:'文献看不完，先看一点',coffee:'咖啡与科研的有效碰撞'}[pending.value.type]||(props.state.lab.level>=2?event.value.title.replaceAll('导师','研究所领导'):event.value.title)))
 const routes=computed(()=>pending.value.bus?[1,2,3,4,5,6]:[...new Set([pending.value.dice??1,Math.min(6,(pending.value.dice??1)+1)])])
 function maxCost(delta:unknown):number{
  if(!delta||typeof delta!=='object')return 0
@@ -32,7 +32,7 @@ onBeforeUnmount(()=>dialog.value?.close())
     <button :disabled="busy||player.funds<cost||Object.values(state.projects).filter(p=>p.owner===player.id&&!p.completedAt).length>=3||!!state.projects[project.id]" @click="emit('choose','buy')"><b>A</b><span>{{ project.kind==='contract'?'签订横向 · 四阶段预算 '+project.totalFunding:'建设设施 · 投入 '+cost+' 经费' }}</span><ArrowRight :size="17"/></button>
     <button :disabled="busy" @click="emit('choose','skip')"><b>B</b><span>先留个研究思路 · 论文进度 +4</span><ArrowRight :size="17"/></button>
    </template>
-   <template v-else-if="pending.type==='equipment'">
+   <template v-else-if="pending.type==='equipment'"><p class="muted">这里出售随身小设备。大型科研资产和软件，请到“我的科研 → 采购与设备”办理。</p>
     <button v-for="eq in content.equipment" :key="eq.id" :disabled="busy||player.equipment.includes(eq.id)||player.funds<Math.max(0,eq.price-(state.effects.some(e=>e.type==='coupon'&&e.target===player.id)?60:0))" @click="emit('choose',eq.id)"><span><strong>{{ eq.name }}</strong><small>{{ eq.description }}</small></span><b>{{ eq.price }} 经费</b></button>
     <button :disabled="busy" @click="emit('choose','skip')"><span>先整理设备清单 · 进度 +4</span><ArrowRight :size="17"/></button>
    </template>
