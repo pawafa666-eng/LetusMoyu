@@ -10,7 +10,7 @@ const props=defineProps<{state:CampusDisplay;paused?:boolean}>()
 const emit=defineEmits<{select:[index:number];unavailable:[]}>()
 const host=ref<HTMLDivElement>(),canvas=ref<HTMLCanvasElement>()
 const labels=ref<{x:number;y:number;name:string}[]>([])
-let scene:T.Scene,camera:T.OrthographicCamera,renderer:T.WebGLRenderer,controls:OrbitControls,resize:ResizeObserver,frame=0,last=0,center:T.Group
+let scene:T.Scene,camera:T.OrthographicCamera,renderer:T.WebGLRenderer,controls:OrbitControls,resize:ResizeObserver,frame=0,resizeFrame=0,last=0,lastWidth=0,lastHeight=0,center:T.Group
 let drone:T.Group,rover:T.Group,dead=false,ready=false,level=0
 const pawns=new Map<string,Scholar>(),animated=new Map<string,string>(),tiles:T.Object3D[]=[],owners:T.Mesh[]=[]
 type Walk={motion:Motion;start:number;resolve:()=>void}
@@ -55,7 +55,11 @@ function draw(time:number){
  renderer.render(scene,camera)
 }
 function fit(){
- if(!host.value||!ready)return;const {width,height}=host.value.getBoundingClientRect(),ratio=width/height,h=Math.max(13.5,19/ratio)
+ if(!host.value||!ready)return
+ const width=Math.max(1,host.value.clientWidth),height=Math.max(1,host.value.clientHeight)
+ if(width===lastWidth&&height===lastHeight)return
+ lastWidth=width;lastHeight=height
+ const ratio=width/height,h=Math.max(13.5,19/ratio)
  camera.left=-h*ratio/2;camera.right=h*ratio/2;camera.top=h/2;camera.bottom=-h/2;camera.updateProjectionMatrix();renderer.setSize(width,height,false)
 }
 const down={x:0,y:0}
@@ -82,11 +86,11 @@ onMounted(()=>{
    const flag=box(group,.25,.07,.12,.4,.17,.44,colors.orange);flag.visible=false;owners.push(flag);scene.add(group);tiles.push(group)
   }
   drone=makeDrone();scene.add(drone);rover=new T.Group();box(rover,.28,.17,.22,0,.2,2,colors.cream);for(const x of [-.17,.17])box(rover,.06,.09,.25,x,.11,2,colors.dark);box(rover,.17,.02,.09,0,.31,2,colors.blue);scene.add(rover)
-  ready=true;sync();fit();resize=new ResizeObserver(fit);resize.observe(host.value!);frame=requestAnimationFrame(draw)
+  ready=true;sync();fit();resize=new ResizeObserver(()=>{cancelAnimationFrame(resizeFrame);resizeFrame=requestAnimationFrame(fit)});resize.observe(host.value!);frame=requestAnimationFrame(draw)
  }catch{emit('unavailable')}
 })
 watch(()=>props.state.version,sync)
-onBeforeUnmount(()=>{dead=true;ready=false;cancelAnimationFrame(frame);resize?.disconnect();controls?.dispose();for(const walk of walks.values())walk.resolve();walks.clear();if(scene)clearObject(scene);renderer?.dispose()})
+onBeforeUnmount(()=>{dead=true;ready=false;cancelAnimationFrame(frame);cancelAnimationFrame(resizeFrame);resize?.disconnect();controls?.dispose();for(const walk of walks.values())walk.resolve();walks.clear();if(scene)clearObject(scene);renderer?.dispose()})
 defineExpose({playMove})
 </script>
 <template>
