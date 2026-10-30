@@ -48,7 +48,8 @@ function reward(s,p,d,now,main=false){
   if(p.discipline==='civil'&&p.actionCount%3===1&&p.actionCount>1)amount+=4;
   const memo=active(s,'inspiration',p.id,now);if(memo){amount+=8;memo.done=true;}
   const busy=active(s,'server',p.id,now);
-  if(busy&&s.players[p.id].position===16){amount=Math.max(4,Math.floor(amount/2));busy.done=true;}
+  if(busy&&p.pending?.type==='event'&&[2,18,19].includes(p.pending.event)){amount=Math.max(4,Math.floor(amount/2));busy.done=true;}
+  if(p.tutor>=70&&(p.position===4||p.position===13))amount+=2;
  }
  progress(p,amount);
  if(d.other){const q=other(s,p);if(q)reward(s,q,d.other,now);}
@@ -141,18 +142,18 @@ function encounter(s,p,now,rng){
  log(s,p.name+' 到了 '+tile.name+'，今日也算推进科研了。',now);
  if(tile.type==='lab'&&!q)log(s,'白板上写着：一个人的交叉学科，暂时只能叫叉。',now);
 }
+function returnBorrowed(s,p){for(const e of s.effects)if(e.type==='borrow'&&e.source===p.id&&!e.done)e.done=true;}
 function finishMove(s,p,steps,now,rng){
  const old=p.position;p.position=(old+steps)%30;if(old+steps>=30)p.funds+=80;
  log(s,p.name+' 前进 '+steps+' 格，到了 '+C.tiles[p.position].name+'。',now,'move');
- const borrowed=s.effects.filter(e=>e.type==='borrow'&&e.source===p.id&&!e.done);
- encounter(s,p,now,rng);for(const e of borrowed)e.done=true;
+ encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);
 }
 function move(s,p,now,rng=random){
  check(!p.pending,'先完成当前地点的选择');takeEnergy(p,now);const before=p.actionCount;p.actionCount++;p.cardUsed=false;
  p.cardDraws=(p.cardDraws||[]).filter(t=>now-t<24*HOUR);
  if(p.actionCount%3===0&&p.cardDraws.length<4){draw(p,rng);p.cardDraws.push(now);}
  const forced=active(s,'mentor',p.id,now);
- if(forced){forced.done=true;p.position=4;encounter(s,p,now,rng);log(s,p.name+' 收到导师召唤，去了办公室。',now,'interaction');return;}
+ if(forced){forced.done=true;p.position=4;encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);log(s,p.name+' 收到导师召唤，去了办公室。',now,'interaction');return;}
  const dice=1+Math.floor(rng()*6),bus=active(s,'bus',p.id,now);
  if(bus||(p.discipline==='air'&&before>0&&before%3===0)){
   p.pending={type:'route',dice,bus:!!bus,expires:now+12*HOUR};
@@ -203,7 +204,7 @@ function resolve(s,p,choice,now,rng=random,timeout=false){
   if(choice==='0'){check(p.funds>=20,'咖啡需要 20 经费');reward(s,p,{f:-20,p:10},now,true);}
   else reward(s,p,{m:6},now);
  }
- p.pending=null;
+ p.pending=null;returnBorrowed(s,p);
 }
 function useCard(s,p,id,now,rng=random){
  check(!p.pending,'先完成当前地点的选择');check(!p.cardUsed,'每次移动结束后可以出一张牌');
