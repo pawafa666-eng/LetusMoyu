@@ -8,6 +8,8 @@ import MailOutcome from './MailOutcome.vue'
 import MailGrant from './MailGrant.vue'
 import ScholarPortrait from './ScholarPortrait.vue'
 const props=defineProps<{player:Player;partner?:Player;busy:boolean;now:number;perform:(action:string,payload?:Record<string,unknown>)=>Promise<ApiResult|undefined>}>()
+const emit=defineEmits<{life:[]}>()
+const labRequests=computed(()=>(props.player.living.requests||[]).filter(r=>r.status==='pending').length)
 const box=ref<'events'|'threads'|'sent'|'contacts'|'compose'>('events'),selected=ref(''),attendee=ref('')
 const threads=ref<ThreadSummary[]>([]),thread=ref<LetterThread|null>(null),nextOffset=ref<number|null>(null),queryBusy=ref(false),error=ref('')
 const to=ref(''),subject=ref(''),body=ref(''),studentId=ref(''),replyBody=ref(''),offerStudent=ref('')
@@ -38,7 +40,7 @@ async function chooseOffer(choice:number){if(!thread.value?.offer)return;const r
 watch(()=>JSON.stringify(props.player.threadSummaries||[]),async()=>{if(box.value==='threads'||box.value==='sent'){await load();if(thread.value)await openThread(thread.value.id)}})
 onMounted(()=>{if(!to.value&&props.partner)to.value=props.partner.id})
 </script>
-<template>
+<template><button v-if="labRequests" class="lab-mail-shortcut" @click="emit('life')"><GraduationCap :size="19"/>{{ labRequests }} 封学生主动来信在实验室生活里等你<ArrowRight :size="16"/></button>
  <div class="panel-heading"><div><span class="eyebrow">BUJI UNIVERSITY · MAIL</span><h1>博士邮箱 <small class="mail-count">{{ unread }}</small></h1></div><button class="primary" :disabled="busy" @click="compose()"><PenLine :size="16"/>写邮件</button></div>
  <div class="research-subnav mail-folders"><button :class="{active:box==='events'}" @click="switchBox('events')"><Mail :size="15"/>来信与邀请</button><button :class="{active:box==='threads'}" @click="switchBox('threads')"><MailOpen :size="15"/>往来会话</button><button :class="{active:box==='sent'}" @click="switchBox('sent')"><Send :size="15"/>已发送</button><button :class="{active:box==='contacts'}" @click="switchBox('contacts')"><Users :size="15"/>通讯录</button></div>
  <p v-if="error" class="error-text" role="alert">{{ error }}</p>

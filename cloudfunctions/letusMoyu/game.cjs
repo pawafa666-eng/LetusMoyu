@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomInt,randomUUID}=require('node:crypto');
 const C=require('./content.cjs');
 const Feed=require('./feed.cjs');
@@ -20,12 +21,12 @@ function player(id,name,discipline,now){
 function createRoom(id,uid,name,discipline,now){
  check(['civil','air'].includes(discipline),'请选择研究方向');
  const s={id,rulesVersion:1,version:0,createdAt:now,players:{[uid]:player(uid,name,discipline,now)},projects:{},effects:[],feed:[],lab:{level:1,funds:0,credits:0,rep:0}};
- Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
+ W.prepare(s,now);Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);Living.migrate(s,now);Institute.migrate(s,now);Joint.migrate(s);s.rulesVersion=8;log(s,name+' 租下了两张科研桌，正在等搭子入住。',now);return s;
 }
 function join(s,uid,name,now){
  check(!s.players[uid],'你已经在园区里了');check(Object.keys(s.players).length<2,'这个园区已经有两位博士了');
  const first=Object.values(s.players)[0];s.players[uid]=player(uid,name,first.discipline==='civil'?'air':'civil',now);
- Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
+ W.prepare(s,now);Research.migrate(s,now);Contracts.migrate(s);Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);Living.migrate(s,now);Institute.migrate(s,now);Joint.migrate(s);s.rulesVersion=8;log(s,s.players[uid].name+' 入住。联合实验室现在真的联合了。',now);
 }
 function progress(p,amount){
  if(amount<=0)return;
@@ -44,7 +45,7 @@ function equipmentActive(s,p,id,now){
  return borrowed||(p.active.includes(id)&&!lent);
 }
 function reward(s,p,d,now,main=false){
- p.funds=Math.max(0,p.funds+(d.f||0));p.mood=clamp(p.mood+(d.m||0),0,100);
+ W.change(p,Math.max(-p.funds,d.f||0),d.note||p._moneyReason||'科研事件收支',d.category||p._moneyCategory||'event',now);p.mood=clamp(p.mood+(d.m||0),0,100);
  p.tutor=clamp(p.tutor+(d.t||0),0,100);p.rep=Math.max(0,p.rep+(d.r||0));
  let amount=d.p||0;
  if(main&&amount>0){
@@ -59,9 +60,9 @@ function reward(s,p,d,now,main=false){
  if(main&&amount>0)Research.addIdeas(p,Math.min(3,Math.ceil(amount/4)));
  if(d.other){const q=other(s,p);if(q)reward(s,q,d.other,now);}
 }
-function draw(p,rng=random){if(p.hand.length<6)p.hand.push(Math.floor(rng()*C.cards.length));else p.funds+=20;}
+function draw(p,rng=random){if(p.hand.length<6)p.hand.push(Math.floor(rng()*C.cards.length));else W.change(p,20,'手牌已满，科研卡兑换','card');}
 function accept(s,p,now){
- const manuscript=structuredClone(p.paper),bank=p.paper.bank;p.papers++;p.credits++;p.rep+=5;p.funds+=100;p.mood=clamp(p.mood+10,0,100);
+ const manuscript=structuredClone(p.paper),bank=p.paper.bank;p.papers++;p.credits++;p.rep+=5;W.change(p,100,'论文发表奖励：'+(manuscript.title||'当前稿件'),'paper',now);p.mood=clamp(p.mood+10,0,100);
  p.paper={phase:'draft',progress:bank,bank:0,reviewAt:0,reviewRoll:0,round:0,required:0};
  Research.paperAccepted(s,p,now,manuscript);
  log(s,p.name+' 的论文 Accept！导师在群里发了一个大拇指。',now,'paper');
@@ -93,7 +94,7 @@ function settleProject(s,pr,now){
    if(pr.elapsed>=CYCLE){
     let funds=Math.round(pr.value*1e6)/1e6;const steal=active(s,'steal',pr.owner,t-1);
     if(pr.finance?.model==='contract'){funds=Math.min(funds,Math.max(0,pr.finance.totalFunding-pr.finance.allocatedFunding));pr.finance.allocatedFunding=Math.round((pr.finance.allocatedFunding+funds)*1e6)/1e6;if(pr.finance.allocatedFunding>=pr.finance.totalFunding)pr.completedAt=t;}
-    if(steal&&steal.project===pr.def){const taken=Math.min(20,funds);funds-=taken;s.players[steal.source].funds+=taken;progress(s.players[pr.owner],8);steal.done=true;
+    if(steal&&steal.project===pr.def){const taken=Math.min(20,funds);funds-=taken;W.change(s.players[steal.source],taken,'接走外协单：'+C.projects[pr.def].name,'project',now);progress(s.players[pr.owner],8);steal.done=true;
       log(s,s.players[steal.source].name+' 接走一笔外协单：'+taken+' 经费。项目主人获得 8 进度，设施仍归原主。',now,'interaction');}
     pr.stock.push({funds,progress:C.projects[pr.def].progress});pr.elapsed=0;pr.value=0;
     if(pr.completedAt)break;
@@ -103,11 +104,12 @@ function settleProject(s,pr,now){
  pr.lastAt=now;
 }
 function settle(s,now){
+ W.prepare(s,now);
  if(s.rulesVersion<2)for(const pr of Object.values(s.projects))settleProject(s,pr,now);
  Research.migrate(s,now);
  for(const pr of Object.values(s.projects))if(!pr.finance)pr.finance={model:'facility',initialInvestment:Math.round(C.projects[pr.def].cost*(s.players[pr.owner].discipline==='civil'&&C.projects[pr.def].domain==='civil'?.9:1)),totalFunding:0,advance:0,allocatedFunding:0,receivedFunding:0,operatingIncome:0,legacy:true};
  Operations.migrate(s,now);Contracts.migrate(s);People.migrate(s,now);Peer.migrate(s,now);
- Operations.settle(s,now);Contracts.settle(s,now);World.settle(s,now);People.settle(s,now);
+ Living.migrate(s,now);Institute.migrate(s,now);Joint.migrate(s);s.rulesVersion=8;Operations.settle(s,now);Contracts.settle(s,now);World.settle(s,now);Joint.settle(s,now);Living.settle(s,now);People.settle(s,now);Institute.settle(s,now);
  for(const p of Object.values(s.players)){
   if(p.energy<5){const ticks=Math.max(0,Math.floor((now-p.energyAt)/(30*MIN)));if(ticks){p.energy=Math.min(5,p.energy+ticks);p.energyAt=p.energy===5?now:p.energyAt+ticks*30*MIN;}}
  }
@@ -120,10 +122,10 @@ function settle(s,now){
 function claim(s,p,now){
  let funds=0,paper=0;
  for(const pr of Object.values(s.projects).filter(x=>x.owner===p.id)){
-  for(const b of pr.stock){funds+=b.funds;paper+=b.progress;if(pr.finance){pr.finance.operatingIncome=Math.round((pr.finance.operatingIncome+b.funds)*1e6)/1e6;if(pr.finance.model==='contract')pr.finance.receivedFunding=Math.round((pr.finance.receivedFunding+b.funds)*1e6)/1e6;}}pr.stock=[];
+  let projectFunds=0;for(const b of pr.stock){projectFunds+=b.funds;funds+=b.funds;paper+=b.progress;if(pr.finance){pr.finance.operatingIncome=Math.round((pr.finance.operatingIncome+b.funds)*1e6)/1e6;if(pr.finance.model==='contract')pr.finance.receivedFunding=Math.round((pr.finance.receivedFunding+b.funds)*1e6)/1e6;}}W.change(p,projectFunds,'科研设施产出：'+(C.projects[pr.def]?.name||pr.def),'project',now,pr.def);pr.stock=[];
  }
- if(funds||paper){p.funds=Math.round((p.funds+funds)*1e6)/1e6;progress(p,paper);log(s,p.name+' 收到了项目产出：经费 +'+Math.floor(funds)+'，进度 +'+paper+'。',now,'income');}
- Research.claim(s,p,now);Operations.claim(s,p,now);
+ if(funds||paper){progress(p,paper);log(s,p.name+' 收到了项目产出：经费 +'+Math.floor(funds)+'，进度 +'+paper+'。',now,'income');}
+ Research.claim(s,p,now);Operations.claim(s,p,now);Institute.claim(p,now);
  return {funds,paper};
 }
 function takeEnergy(p,now,amount=1){check(p.energy>=amount,'行动力还在路上，休息一下再来');if(p.energy===5)p.energyAt=now;p.energy-=amount;}
@@ -133,7 +135,7 @@ function encounter(s,p,now,rng){
   const pr=s.projects[tile.project];
   if(!pr){p.pending={type:'project',project:tile.project,expires:now+12*HOUR};return;}
   if(pr.owner===p.id){reward(s,p,{p:5},now,true);log(s,p.name+' 查看了自己的 '+C.projects[pr.def].name+'，进度 +5。',now);}
-  else{const paid=Math.min(20,p.funds);p.funds-=paid;s.players[pr.owner].funds+=paid+30;reward(s,p,{p:5},now,true);log(s,p.name+' 借用了 '+s.players[pr.owner].name+' 的设备，园区报销了一部分费用。',now,'interaction');}
+  else{const paid=Math.min(20,p.funds);W.change(p,-paid,'借用设备：'+C.projects[pr.def].name,'project',now);W.change(s.players[pr.owner],paid+30,'设备借用与园区报销：'+p.name,'project',now);reward(s,p,{p:5},now,true);log(s,p.name+' 借用了 '+s.players[pr.owner].name+' 的设备，园区报销了一部分费用。',now,'interaction');}
   return;
  }
  if(tile.type==='event'||tile.type==='boss'){
@@ -152,7 +154,7 @@ function encounter(s,p,now,rng){
 }
 function returnBorrowed(s,p){for(const e of s.effects)if(e.type==='borrow'&&e.source===p.id&&!e.done)e.done=true;}
 function finishMove(s,p,steps,now,rng){
- const old=p.position;p.position=(old+steps)%30;if(old+steps>=30)p.funds+=80;
+ const old=p.position;p.position=(old+steps)%30;if(old+steps>=30)W.change(p,80,'绕校园一圈的科研补助','event',now);
  p.lastMove={...(p.lastMove||{id:randomUUID(),dice:steps}),from:old,to:p.position,steps,pendingRoute:false,at:now,kind:'walk',scene:'campus'};
  log(s,p.name+' 前进 '+steps+' 格，到了 '+C.tiles[p.position].name+'。',now,'move');
  encounter(s,p,now,rng);if(!p.pending)returnBorrowed(s,p);
@@ -186,7 +188,7 @@ function resolve(s,p,choice,now,rng=random,timeout=false){
   if(choice==='buy'){
    const def=C.projects[pending.project];check(!s.projects[def.id],'对方先签下了项目，可免费离开');
    check(Object.values(s.projects).filter(x=>x.owner===p.id&&!x.completedAt).length<3,'每人最多三个进行中的项目或设施');
-   const cost=price(p,def);check(p.funds>=cost,'科研经费不足');p.funds-=cost;
+   const cost=price(p,def);check(p.funds>=cost,'科研经费不足');W.change(p,-cost,'项目启动投入：'+def.name,'project',now,def.id);
    const contract=def.kind==='contract',advance=0;
    s.projects[def.id]={def:def.id,owner:p.id,lastAt:now,signedAt:now,elapsed:0,value:0,stock:[],finance:{model:def.kind,initialInvestment:cost,totalFunding:def.totalFunding,advance,allocatedFunding:advance,receivedFunding:advance,operatingIncome:0}};
    Contracts.initialize(s.projects[def.id]);
@@ -196,7 +198,7 @@ function resolve(s,p,choice,now,rng=random,timeout=false){
   if(choice!=='skip'){
    const def=C.equipment.find(e=>e.id===choice);check(def,'设备不存在');check(!p.equipment.includes(def.id),'已经拥有这件设备');
    const coupon=active(s,'coupon',p.id,now);const cost=Math.max(0,def.price-(coupon?60:0));check(p.funds>=cost,'设备经费不足');
-   p.funds-=cost;p.equipment.push(def.id);if(p.active.length<2)p.active.push(def.id);if(coupon)coupon.done=true;
+   W.change(p,-cost,'随身设备采购：'+def.name,'procurement',now,def.id);p.equipment.push(def.id);if(p.active.length<2)p.active.push(def.id);if(coupon)coupon.done=true;
    log(s,p.name+' 添置了 '+def.name+'，设备看起来比人精神。',now,'project');
   }else reward(s,p,{p:4},now,true);
  }else if(pending.type==='event'){
@@ -275,7 +277,7 @@ function useCard(s,p,id,now,rng=random){
 function submit(s,p,now,rng=random){Peer.submit(s,p,now,rng);}
 function contribute(s,p,kind,amount,now){
  check(['funds','credits','rep'].includes(kind),'贡献类型无效');check(Number.isSafeInteger(amount)&&amount>0&&amount<=100000,'请输入有效的正整数');
- if(kind==='funds'){check(p.funds>=amount,'经费不足');p.funds-=amount;p.donated+=amount;}
+ if(kind==='funds'){check(p.funds>=amount,'经费不足');W.change(p,-amount,'共同实验室建设投入','lab',now);p.donated+=amount;}
  if(kind==='credits'){check(p.credits>=amount,'可用成果点不足');p.credits-=amount;}
  if(kind==='rep'){check(p.rep-p.registeredRep>=amount,'这些声望已经登记过了');p.registeredRep+=amount;}
  s.lab[kind]+=amount;log(s,p.name+' 向实验室投入 '+amount+' '+({funds:'经费',credits:'成果点',rep:'登记声望'}[kind])+'。',now,'lab');
@@ -287,6 +289,8 @@ function contribute(s,p,kind,amount,now){
 }
 function execute(s,uid,action,payload,now=Date.now(),rng=random){
  const p=s.players[uid];check(p,'你不在这个园区里');settle(s,now);claim(s,p,now);
+ p._moneyCategory=action==='card'?'card':action.startsWith('mail_')?'mail':'event';
+ p._moneyReason=action==='resolve'?(p.pending?.type==='event'?'科研事件：'+(C.events[p.pending.event]?.title||C.events[p.pending.event]?.name||'园区偶遇'):'地点选择：'+p.pending?.type):action==='card'?'科研卡：'+C.cards[Number(payload.card)]?.name:action==='mail_reply'?'回复来信：'+(p.inbox.find(m=>m.id===payload.id)?.rules?.subject||'科研来信'):action==='world_claim'?'活动结果：'+(Object.values(s.players).flatMap(p=>p.world.jobs).find(j=>j.id===payload.id)?.title||'园区活动'):'科研活动收支';
  if(action==='move')move(s,p,now,rng);
  else if(action==='resolve')resolve(s,p,String(payload.choice),now,rng);
  else if(action==='card')useCard(s,p,Number(payload.card),now,rng);
@@ -294,18 +298,18 @@ function execute(s,uid,action,payload,now=Date.now(),rng=random){
  else if(action==='contribute')contribute(s,p,payload.kind,Number(payload.amount),now);
  else if(action==='equip'){
   check(Array.isArray(payload.items)&&payload.items.length<=2&&new Set(payload.items).size===payload.items.length&&payload.items.every(x=>p.equipment.includes(x)),'最多启用两件已有设备');p.active=[...payload.items];
- }else if(!World.dispatch(s,p,action,payload,now)&&!People.dispatch(s,p,action,payload,now)&&!Peer.dispatch(s,p,action,payload,now)&&!Operations.dispatch(s,p,action,payload,now)&&!Contracts.dispatch(s,p,action,payload,now)&&!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
- return view(s,uid,now);
+ }else if(!Living.dispatch(s,p,action,payload,now)&&!Joint.dispatch(s,p,action,payload,now)&&!Institute.dispatch(s,p,action,payload,now)&&!World.dispatch(s,p,action,payload,now)&&!People.dispatch(s,p,action,payload,now)&&!Peer.dispatch(s,p,action,payload,now)&&!Operations.dispatch(s,p,action,payload,now)&&!Contracts.dispatch(s,p,action,payload,now)&&!Research.dispatch(s,p,action,payload,now,rng))check(action==='state'||action==='export','未知操作');
+ W.assertBalanced(s);return view(s,uid,now);
 }
 function view(s,uid,now){
- Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);
- const result=JSON.parse(JSON.stringify(s));result.self=uid;result.serverNow=now;
+ Operations.migrate(s,now);People.migrate(s,now);Peer.migrate(s,now);World.migrate(s,now);Living.migrate(s,now);Institute.migrate(s,now);Joint.migrate(s);
+ const result=JSON.parse(JSON.stringify(s));result.incomingStudentRequests=Object.values(s.players).flatMap(p=>(p.living?.requests||[]).filter(r=>r.partnerId===uid&&r.status==='invited').map(r=>({...r,ownerId:p.id,ownerName:p.name})));result.self=uid;result.serverNow=now;
  for(const pr of Object.values(result.projects)){const step=Contracts.current(pr);if(step?.status==='available'&&pr.owner===uid)pr.contract.quotes=Object.fromEntries(require('./contract-content.cjs').modes.map(m=>[m.id,Contracts.quote(s,s.projects[pr.def],m.id,now)]));}
- for(const p of Object.values(result.players)){delete p.paper.reviewRoll;for(const st of p.students)People.publicStudent(st);
+ for(const p of Object.values(result.players)){delete p.paper.reviewRoll;W.init(p,now);for(const st of p.students)People.publicStudent(st);
   p.inbox=p.inbox.map(require('./mail-content.cjs').publicMail);
-  p.benefits={achievementBonus:Research.bonus(p),quota:Research.quota(s)};
+  p.benefits={achievementBonus:Research.bonus(p),quota:Research.quota(s,p)};
   p.paper.progress=Math.floor(p.paper.progress*10+1e-7)/10;p.paper.bank=Math.floor(p.paper.bank*10+1e-7)/10;
-  if(p.id!==uid){delete p.world.applicants;delete p.world.offers;delete p.inbox;delete p.nextMailAt;delete p.mailSequence;delete p.threadSummaries;delete p.mailSent;if(p.admissions)delete p.admissions.candidates;}
+  if(p.id!==uid){delete p.ledger;delete p.institute.candidates;delete p.living.requests;delete p.living.story;p.living.notes=p.living.notes.filter(n=>n.from===uid||n.to===uid);delete p.world.applicants;delete p.world.offers;delete p.inbox;delete p.nextMailAt;delete p.mailSequence;delete p.threadSummaries;delete p.mailSent;if(p.admissions)delete p.admissions.candidates;}
   if(p.id!==uid){delete p.hand;delete p.pending;delete p.coopAt;}
   else if(p.pending)delete p.pending.roll;
  }
@@ -317,4 +321,7 @@ const Operations=require('./operations.cjs').createOperations({check,log,progres
 const People=require('./people.cjs').createPeople({check,log,HOUR,advanceTask:(s,p,st,n,now,from)=>Research.Portfolio.advanceContinuous(s,p,st,n,from,now),teacherProgress:progress});
 const Peer=require('./peer-review.cjs').createPeerReview({check,log,HOUR,accept,finishStudent:(s,p,st,now)=>Research.Portfolio.finishTask(s,p,st,now),advanceStudent:(s,p,st,n,now)=>Research.Portfolio.advancePoints(s,p,st,n,now),onHelp:(p,st,now)=>People.interact(p,st,'guide',now)});
 const World=require('./world.cjs').createWorld({check,log,reward,progress,HOUR,getPeople:()=>People,getOperations:()=>Operations,recordActivity:(p,st,record,now)=>Research.Portfolio.activity(p,st,record,now)});
-module.exports={C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,reward,log,Research,Contracts,Operations,People,Peer,World};
+const Living=require('./living-lab.cjs').createLiving({check,log,progress,HOUR,getPeople:()=>People,getPortfolio:()=>Research.Portfolio,getWorld:()=>World,activity:(p,st,r,now)=>Research.Portfolio.activity(p,st,r,now)});
+const Joint=require('./joint-research.cjs').createJoint({check,log,progress,HOUR,getPeople:()=>People,activity:(p,st,r,now)=>Research.Portfolio.activity(p,st,r,now)});
+const Institute=require('./institute.cjs').createInstitute({check,log,HOUR,getPeople:()=>People,getPortfolio:()=>Research.Portfolio,getPeer:()=>Peer,activity:(p,st,r,now)=>Research.Portfolio.activity(p,st,r,now)});
+module.exports={Living,Joint,Institute,Wallet:W,C,MIN,HOUR,CYCLE,createRoom,join,settle,claim,execute,view,price,rate,progress,reward,log,Research,Contracts,Operations,People,Peer,World};

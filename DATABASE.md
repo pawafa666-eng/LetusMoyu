@@ -1,6 +1,6 @@
-# 云存档结构（v0.7）
+# 云存档结构（v0.8）
 
-使用现有 CloudBase NoSQL。下列五个集合均为 ADMINONLY，由事件云函数 letusMoyu 读写。浏览器只调用登录和函数，不直接读写数据库。
+使用现有 CloudBase NoSQL。下列六个集合均为 ADMINONLY，由事件云函数 letusMoyu 读写。浏览器只调用登录和函数，不直接读写数据库。
 
 | 集合 | 文档 ID | 主要字段 |
 |---|---|---|
@@ -9,10 +9,17 @@
 | letus_moyu_receipts | SHA256(uid:requestId) | room、actor、payloadHash、action、createdAt、threadId |
 | letus_moyu_snapshots | roomId-轮转槽号 | roomId、state、version、createdAt；十二个槽 |
 | letus_moyu_correspondence | 会话 UUID | roomId、scopeCivil、scopeAir、kind、updatedAt、awaitingStaff、thread（JSON 字符串） |
+| letus_moyu_ledger | roomId-ownerId-seq | roomId、ownerId、seq、id、at、amount、direction、balance、title、category、related |
 
 ## 园区状态
 
-state.rulesVersion 为 7；玩家档案 archiveVersion 为 4。主要对象：
+state.rulesVersion 为 8；玩家档案 archiveVersion 为 4。主要对象：
+
+- players[uid].ledger：期初、累计收入支出、各来源汇总、连续 sequence、最近一百条 entries。完整历史存独立集合，前端只查询本人的记录。
+- players[uid].living：主动请求、个人剧情记忆、校友、转化、装饰、礼物、便签和共同纪念；对方个人请求和剧情从响应中删除，收件人只收到发给自己的跨组邀请。
+- players[uid].institute：教师、招聘册、方向团队、院士工作站。教师保存工资缓冲、培养委托、学年版面费预算和实际支出；对方招聘册隐藏。
+- livingCross[]：双方学生、资源支持、四小时采集的开始与结束时间、确认状态。
+- jointResearch.projects[]：各专业工序、执行人、费用、实际劳动或计时、整合方式、最终验收与双方成果。
 
 - players[uid].profile：显示名、固定学校“不急大学”、研究方向和自我介绍。
 - portfolio.papers / patents：成果 UUID、题目、作者快照（ID、姓名、导师/学生/合作者角色）、期刊或虚拟专利号、发表时间、来源、状态。
@@ -22,7 +29,13 @@ state.rulesVersion 为 7；玩家档案 archiveVersion 为 4。主要对象：
 - threadSummaries[]：自己的最近八十段往来摘要；另一玩家响应中删除此字段。
 - projects[def].finance：contract / facility、建设投入、合同总额、首款、已分配、已到账和经营收入。结项时间保存在项目 completedAt。
 
-## 往来会话
+## 经费明细集合与事务
+
+流水 amount 为带符号的实际变化，direction 为 income / expense，balance 为变化后余额。seq 在每个玩家账本中递增；文档 ID 含园区和所有者。四个复合索引依次为 ownerId、roomId、可选 category、可选 direction、seq(-1)。查询从原生 UID 的 member 文档取得园区和所有者，忽略客户端传入的 ownerId；每页一百条，使用 seq 游标，日期在页内筛选并保留继续扫描游标。
+
+钱包的待持久化队列只在云函数内部使用。flush 在同一 runTransaction 中先写流水，再写 rooms、receipt 与 snapshot；任一步失败全部回滚。旧回执重试返回当前已保存状态，不重新执行扣款。房间只保留近期一百条缓存，独立集合不随缓存裁剪。
+
+## 往来会话内容
 
 thread 包含 participants、NPC 编号或搭子姓名快照、主题、消息列表、每玩家已读时间、管理员已读时间、待回复标记、学生摘要附件和可选邀请。
 

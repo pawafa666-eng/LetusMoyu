@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomUUID}=require('node:crypto'),D=require('./operations-content.cjs');
 const round=n=>Math.round(n*1e6)/1e6;
 function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
@@ -29,13 +30,13 @@ function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
  }
  function withdraw(a){const value=Math.floor(a.buffer+1e-7);a.buffer=round(a.buffer-value);a.total+=value;return value;}
  function claim(s,p,now){
-  const salary=withdraw(p.economy.salary);let rental=0;for(const a of p.assets)rental+=withdraw(a.rental);
-  p.funds=round(p.funds+salary+rental);
+  const salary=withdraw(p.economy.salary);W.change(p,salary,'学校副教授及以上职称工资','salary',now);let rental=0;for(const a of p.assets){const n=withdraw(a.rental);rental+=n;W.change(p,n,'校内出租：'+item(a.sku).name,'rental',now,a.id);}
+
   const students=p.students.filter(st=>Math.floor(st.wage.buffer+1e-7)>0),dues=students.map(st=>Math.floor(st.wage.buffer+1e-7)),due=dues.reduce((a,b)=>a+b,0),budget=Math.min(due,Math.floor(p.funds));
   const paid=dues.map(n=>due?Math.floor(budget*n/due):0);let remainder=budget-paid.reduce((a,b)=>a+b,0);
   for(let i=0;remainder>0&&i<paid.length;i++)if(paid[i]<dues[i]){paid[i]++;remainder--;}
-  let wages=0;for(let i=0;i<students.length;i++){const st=students[i],n=paid[i];st.wage.buffer=round(st.wage.buffer-n);st.wage.total+=n;getPeople()?.paid(st,n,dues[i]);wages+=n;}
-  p.funds=round(p.funds-wages);p.economy.totalWagesPaid+=wages;
+  let wages=0;for(let i=0;i<students.length;i++){const st=students[i],n=paid[i];st.wage.buffer=round(st.wage.buffer-n);st.wage.total+=n;getPeople()?.paid(st,n,dues[i]);W.change(p,-n,'助研劳务：'+st.name+'（'+st.wage.rate+'/小时）','wages',now,st.id);wages+=n;}
+  p.economy.totalWagesPaid+=wages;
   if(salary||rental||wages){
    const period=Math.floor(now/HOUR),previous=p.economy.lastStatement;
    const statement=previous?.period===period?previous:{period,at:now,salary:0,rental:0,wages:0,net:0,feedId:null};
@@ -48,10 +49,10 @@ function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
  }
  function promote(s,level,now){
   migrate(s,now);
-  for(const p of Object.values(s.players)){if(level===2){p.economy.salary.lastAt=now;p.economy.salaryStartAt=now;}p.funds+=D.grants[level-1];}
+  for(const p of Object.values(s.players)){if(level===2){p.economy.salary.lastAt=now;p.economy.salaryStartAt=now;}W.change(p,D.grants[level-1],'晋升启动经费：'+D.careers[level-1],'lab',now);}
   log(s,'双方晋升「'+D.careers[level-1]+'」，各获 '+D.grants[level-1]+' 启动经费'+(level===2?'；从此由研究所领导对接，学校工资开始按每小时 20 累计。':'。'),now,'career',Object.keys(s.players));
  }
- function bonus(p,domain){return Math.max(0,...p.assets.filter(a=>a.mode==='research'&&item(a.sku).domain.includes(domain)).map(a=>item(a.sku).speed));}
+ function bonus(p,domain){return (p.institute?.teams.some(t=>t.domain===domain||t.domain==='cross')?.12:0)+Math.max(0,...p.assets.filter(a=>a.mode==='research'&&item(a.sku).domain.includes(domain)).map(a=>item(a.sku).speed));}
  function dispatch(s,p,action,payload,now){
   if(action==='student_wage'){
    const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt);check(st,'请选择本组在读学生');const rate=payload.rate,min=st.degree==='phds'?2:1;
@@ -59,7 +60,7 @@ function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
    log(s,p.name+' 将'+st.name+'的劳务费设为 '+rate+' 经费/小时，不追溯旧时段。',now,'students',p.id);return true;
   }
   if(action==='asset_mode'){
-   const a=p.assets.find(x=>x.id===payload.id);check(a,'这件资产不在你的台账里');check(['research','rental'].includes(payload.mode),'请选择科研或校内租赁');check(payload.mode!=='rental'||item(a.sku).rent>0,'这项软件不提供校内出租能力');a.mode=payload.mode;
+   const a=p.assets.find(x=>x.id===payload.id);check(a,'这件资产不在你的台账里');check(payload.mode!=='rental'||!s.livingCross?.some(c=>c.assetId===a.id&&c.status==='working'),'资产正在支持两组学生联合采集，完成后再出租');check(['research','rental'].includes(payload.mode),'请选择科研或校内租赁');check(payload.mode!=='rental'||item(a.sku).rent>0,'这项软件不提供校内出租能力');a.mode=payload.mode;
    log(s,p.name+' 将「'+item(a.sku).name+'」设为'+(a.mode==='rental'?'出租给学校。':'科研使用。'),now,'equipment',p.id);return true;
   }
   if(action==='asset_data'){
@@ -79,7 +80,7 @@ function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
    check(o.status==='available','当前流程已经安排，请勿重复办理');check(['self','student'].includes(payload.mode),'请选择本人或学生办理');
    let st=null;if(payload.mode==='student'){st=p.students.find(x=>x.id===payload.studentId&&!x.graduatedAt);check(st,'请选择本组在读学生');check(!st.contractWork&&!st.procurementWork&&!st.worldWork,'这位同学正在处理横向或采购');check(st.wellbeing>=35,'这位同学心情偏低，先关心一下再安排采购');check(!st.task||!['conference','visit'].includes(st.task.type)||st.task.status==='completed','这位同学正在参会或访学');}
    if(o.stage===0){const sup=D.suppliers.find(x=>x.id===payload.supplier);check(sup,'请选择供应商');o.supplier=sup.id;o.price=Math.ceil(round(item(o.sku).price*sup.multiplier));}
-   if(o.stage===2){check(p.funds>=o.price,'科研经费不足，采购合同需要 '+o.price);p.funds=round(p.funds-o.price);o.paid=o.price;}
+   if(o.stage===2){check(p.funds>=o.price,'科研经费不足，采购合同需要 '+o.price);W.change(p,-o.price,'签订采购合同：'+item(o.sku).name,'procurement',now,o.id);o.paid=o.price;}
    const sup=D.suppliers.find(x=>x.id===o.supplier),duration=Math.ceil((st?40:120)*sup.time)*60000;o.status='working';o.job={id:randomUUID(),mode:payload.mode,studentId:st?.id||null,studentName:st?.name||'',startedAt:now,dueAt:now+duration};
    if(st){st.procurementWork={orderId:o.id,jobId:o.job.id};st.wellbeing=Math.max(0,st.wellbeing-4);o.job._labor=getPeople().createWork(p,st,'procurement',duration,now,payload.pace);getPeople().advanceWork(p,st,o.job,now,now);}
    log(s,p.name+' 安排'+(st?st.name:'自己')+'办理「'+D.stages[o.stage]+'」'+(o.stage===2?'，合同支付 '+o.paid+' 经费':'')+'。',now,'procurement',p.id);

@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomUUID,createHash}=require('node:crypto');
 const Data=require('./research-data-v4.cjs');
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
@@ -12,7 +13,7 @@ function createPortfolio({C,log,progress,check,HOUR,getPeople=()=>null,getPeer=(
  }
  function authorList(s,p,studentIds=[],partner=false){
   const authors=[{id:p.id,name:name(p),role:'teacher'}];
-  for(const id of studentIds){const st=p.students.find(x=>x.id===id);if(st)authors.push({id:st.id,name:st.name,role:'student'});}
+  for(const id of studentIds){const st=p.students.find(x=>x.id===id);if(st){authors.push({id:st.id,name:st.name,role:'student'});const f=p.institute?.faculty.find(f=>f.id===st.supervisorId);if(f&&!authors.some(a=>a.id===f.id))authors.push({id:f.id,name:f.name,role:'faculty'});}}
   const q=partner&&Object.values(s.players).find(x=>x.id!==p.id);if(q)authors.push({id:q.id,name:name(q),role:'partner'});
   return authors;
  }
@@ -44,8 +45,8 @@ function createPortfolio({C,log,progress,check,HOUR,getPeople=()=>null,getPeer=(
  function activity(p,st,record,now){const a={id:randomUUID(),at:now,status:'completed',...record};if(st){initStudent(st);st.activities.push(a);st.activities=st.activities.slice(-40);}else{p.portfolio.activities.push(a);trim(p);}return a;}
  function finishTask(s,p,st,now){
   const task=st.task;if(!task||task.status==='completed')return;task.status='completed';task.completedAt=now;
-  if(task.type==='paper'){const w=recordPaper(s,p,now,{title:task.title,student:st,partner:task.partner});task.workId=w.id;st.paper.progress=0;p.credits++;p.rep+=3;p.funds+=80;progress(p,8);log(s,st.name+' 的论文「'+w.title+'」发表，'+name(p)+' 与学生进入作者名单。',now,'paper');}
-  else if(task.type==='patent'){const w=recordPatent(s,p,now,{title:task.title,student:st});task.workId=w.id;st.patent.progress=0;p.rep+=2;p.funds+=80;log(s,st.name+' 完成的专利「'+w.title+'」已授权，收入课题组成果。',now,'patent');}
+  if(task.type==='paper'){const w=recordPaper(s,p,now,{title:task.title,student:st,partner:task.partner});task.workId=w.id;st.paper.progress=0;p.credits++;p.rep+=3;W.change(p,80,'学生论文发表奖励：'+st.name,'paper',now,task.id);progress(p,8);log(s,st.name+' 的论文「'+w.title+'」发表，'+name(p)+' 与学生进入作者名单。',now,'paper');}
+  else if(task.type==='patent'){const w=recordPatent(s,p,now,{title:task.title,student:st});task.workId=w.id;st.patent.progress=0;p.rep+=2;W.change(p,80,'学生专利授权奖励：'+st.name,'patent',now,task.id);log(s,st.name+' 完成的专利「'+w.title+'」已授权，收入课题组成果。',now,'patent');}
   else{
    const visit=task.type==='visit',conference=task.type==='conference';
    st.progress=Math.min(st.target,st.progress+(visit?20:conference?12:10));st.wellbeing=clamp(st.wellbeing+(visit?8:5),0,100);progress(p,visit?8:conference?5:12);p.rep+=visit?2:1;
@@ -88,7 +89,7 @@ function createPortfolio({C,log,progress,check,HOUR,getPeople=()=>null,getPeer=(
  }
  function assign(s,p,st,type,rawTitle,partner,now,paid=false){
   initStudent(st);const def=Data.tasks.find(x=>x.id===type);check(def,'请选择有效的学生任务');check(!st.graduatedAt,'这位同学已毕业');
-  check(!st.task||st.task.status==='completed','这位同学已有进行中的任务，请先完成或取消');if(!paid){check(p.funds>=def.cost,'科研经费不足');p.funds-=def.cost;}
+  check(!st.task||st.task.status==='completed','这位同学已有进行中的任务，请先完成或取消');if(!paid){check(p.funds>=def.cost,'科研经费不足');W.change(p,-def.cost,'学生任务支持：'+st.name+' · '+def.name,'students',now);}
   const initial=type==='paper'?st.paper.progress:type==='patent'?st.patent.progress:0;
   if(['visit','conference'].includes(type))check(!st.contractWork&&!st.procurementWork&&!st.worldWork,'这位同学正在做横向或采购，请完成后再安排出行');
   st.task={id:randomUUID(),type,title:safe(rawTitle)||(['paper','patent'].includes(type)?title(p,type,p.portfolio[type==='paper'?'papers':'patents'].length+1,st,partner):type==='visit'?'云杉理工大学城市智能系统短期访学':type==='conference'?'城市智能与低空交叉学术报告':'多源研究数据分析小目标'),progress:initial,target:def.target||100,status:'working',createdAt:now,dueAt:def.hours?now+def.hours*HOUR:0,partner:!!partner};

@@ -2,6 +2,7 @@
 const tcb=require('@cloudbase/node-sdk');
 const {createHash,randomBytes}=require('node:crypto');
 const Game=require('./game.cjs');
+const Ledger=require('./ledger.cjs');
 const {read}=require('./store.cjs');
 const Correspondence=require('./correspondence.cjs');
 const app=tcb.init({env:process.env.CLOUDBASE_ENV_ID||'yiyi-and-fafa-d6gr7w5e62c4e8565'});
@@ -14,7 +15,7 @@ const hash=value=>createHash('sha256').update(value).digest('hex');
 const decode=doc=>JSON.parse(doc.state);
 const cleanError=error=>{
  const message=error instanceof Error?error.message:'操作未完成';
- return /^(你|这|先|对方|搭子|科研|设备|行动|每|今天|同名|最多|论文|进度|已经|可用|请选择|请输入|贡献|路线|未知|请求|服务|只|园区|邀请码|本学年|课题组|刚刚|专利|研究|邮件|会话|收件|发件|当前|代表作|资源|横向|合同|阶段|经费|劳务|采购|资产|已经)/.test(message)?message:'网络或云服务暂时未能保存，请重试；已成功的操作不会重复扣款。';
+ return /^(你|这|先|对方|搭子|科研|设备|行动|每|今天|同名|最多|论文|进度|已经|可用|请选择|请输入|贡献|路线|未知|请求|服务|只|园区|邀请码|本学年|课题组|刚刚|专利|研究|邮件|会话|收件|发件|当前|代表作|资源|横向|合同|阶段|经费|劳务|采购|资产|已经|学生|同学|教师|三级|四级|五级|联合|下一封|两|有|发起|工作站|成果|本组)/.test(message)?message:'网络或云服务暂时未能保存，请重试；已成功的操作不会重复扣款。';
 };
 exports.main=async(event)=>{
  const identity=app.auth().getUserInfo();
@@ -23,11 +24,12 @@ exports.main=async(event)=>{
  try{
   if(!event||typeof event!=='object'||Array.isArray(event))throw new Error('请求格式无效');
   const action=String(event.action||'state');
-  const actions=['state','export','create','join','move','resolve','card','submit','contribute','equip','mail_read','mail_reply','student_hire','student_care','student_graduate','patent_work','patent_submit','paper_configure','profile_update','representatives','student_task','student_plan','student_cancel','contract_start','contract_respond','contract_cancel','contract_claim','procure_create','procure_start','procure_confirm','procure_cancel','asset_mode','asset_data','student_wage','candidate_interview','paper_journal','paper_response','paper_publish','student_publish','student_review_help','contract_takeover','procure_takeover','world_travel','world_undergrad_accept','world_company_start','world_respond','world_team_start','world_competition_start','world_claim','world_takeover','world_cancel_invite',...Correspondence.queries,...Correspondence.actions];
+  const actions=['living_request_withdraw','institute_supervise','living_request_reply','living_cross_respond','living_cross_claim','living_story','living_alumni_career','living_alumni_reply','living_transfer_start','living_transfer_claim','living_decor_buy','living_note','living_note_remove','living_gift','living_gift_open','joint_open','joint_start','joint_integrate','joint_claim','joint_takeover','joint_cancel','institute_recruit','institute_delegate','institute_salary','institute_team','institute_workstation','ledger_list','state','export','create','join','move','resolve','card','submit','contribute','equip','mail_read','mail_reply','student_hire','student_care','student_graduate','patent_work','patent_submit','paper_configure','profile_update','representatives','student_task','student_plan','student_cancel','contract_start','contract_respond','contract_cancel','contract_claim','procure_create','procure_start','procure_confirm','procure_cancel','asset_mode','asset_data','student_wage','candidate_interview','paper_journal','paper_response','paper_publish','student_publish','student_review_help','contract_takeover','procure_takeover','world_travel','world_undergrad_accept','world_company_start','world_respond','world_team_start','world_competition_start','world_claim','world_takeover','world_cancel_invite',...Correspondence.queries,...Correspondence.actions];
   if(!actions.includes(action))throw new Error('未知操作');
   const payload=event.payload&&typeof event.payload==='object'&&!Array.isArray(event.payload)?event.payload:{};
   const requestId=String(event.requestId||'');
   if(!/^[a-f0-9-]{36}$/i.test(requestId))throw new Error('请求编号无效，请重新打开页面');
+  if(action==='ledger_list')return {ok:true,...await Ledger.query(db,read,uid,payload)};
   if(Correspondence.queries.has(action))return {ok:true,...await Mail.query(uid,action,payload,Date.now())};
   const writing=!['state','export'].includes(action),now=Date.now();
   const receiptId=hash(uid+':'+requestId),payloadHash=hash(JSON.stringify({action,payload}));
@@ -65,6 +67,7 @@ exports.main=async(event)=>{
     if(Correspondence.actions.has(action)){Game.settle(state,now);extra=await Mail.apply(tx,state,uid,action,payload,now);}
     else Game.execute(state,uid,action,payload,now);
    }
+   await Game.Wallet.flush(tx,state);
    state.version++;
    if(writing)state.snapshotSeq=(state.snapshotSeq||0)+1;
    await tx.collection(COLLECTIONS.rooms).doc(roomId).set({state:JSON.stringify(state),version:state.version,updatedAt:now});

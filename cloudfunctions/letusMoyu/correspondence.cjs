@@ -50,7 +50,7 @@ function createMailService({Game,db,read,adminUids}){
    else if(action==='office_read')t.staffReadAt=now;
    else if(action==='letter_reward'){
     const m=t.messages.find(m=>m.id===payload.messageId);check(t.kind==='npc'&&m?.role==='npc'&&m.grant,'这封邮件没有可领取的资源附件');check(!m.grant.claimedAt,'这份资源附件已经领取过了');
-    const before={f:p.funds,r:p.rep,p:p.paper.progress+p.paper.bank};Game.reward(s,p,{f:m.grant.f,r:m.grant.r,p:m.grant.p},now);const after={f:p.funds,r:p.rep,p:p.paper.progress+p.paper.bank};
+    const before={f:p.funds,r:p.rep,p:p.paper.progress+p.paper.bank};Game.reward(s,p,{note:'来信附件：'+t.subject,category:'mail',f:m.grant.f,r:m.grant.r,p:m.grant.p},now);const after={f:p.funds,r:p.rep,p:p.paper.progress+p.paper.bank};
     m.grant.claimedAt=now;m.grant.claimedBy=uid;m.grant.actual=Object.fromEntries(Object.keys(before).map(k=>[k,Math.round((after[k]-before[k])*1e6)/1e6]));t.readAt[uid]=now;t.updatedAt=now;
     t.messages.push({id:randomUUID(),authorUid:uid,role:'receipt',fromName:'资源附件领取回执',fromAddress:'receipt@buji.example',body:p.name+' 已领取：经费 +'+m.grant.actual.f+'、声望 +'+m.grant.actual.r+'、论文进度 +'+m.grant.actual.p+'。',at:now});
     Game.log(s,p.name+' 领取了 '+m.fromName+' 的资源附件：经费 +'+m.grant.actual.f+'、声望 +'+m.grant.actual.r+'、进度 +'+m.grant.actual.p+'。',now,'mail',uid);

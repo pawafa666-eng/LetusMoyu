@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomUUID,randomInt}=require('node:crypto');
 const journals=[{id:'campus',name:'不急大学开放研究',fee:80},{id:'city',name:'城市智能工程学报',fee:140},{id:'future',name:'空地协同前沿',fee:240}];
 const roll=()=>randomInt(0,1000000)/1000000;
@@ -46,13 +47,13 @@ function createPeerReview({check,log,HOUR,accept,finishStudent,advanceStudent,on
    const m=p.paper;check(['major','minor'].includes(m.phase),'当前没有需要处理的返修意见');const c=m.reviewHistory.at(-1).comments.find(c=>c.id===payload.id);check(c,'这条意见不属于当前返修轮次');
    const options={analyse:{cost:10,progress:3,text:'补充分析并交代结果'},rerun:{cost:20,progress:5,text:'重新验证并补充说明'},explain:{cost:0,progress:1,text:'澄清边界与现有证据'}};check(options[payload.approach],'请选择处理方式');const option=options[payload.approach];
    const response=String(payload.response||'').trim().slice(0,600);check(response.length>=8,'请填写至少八个字的回复说明');check(!c.handledAt,'这条意见已处理，不能重复领取返修进度');check(p.funds>=option.cost,'科研经费不足，本次处理需要 '+option.cost);
-   p.funds-=option.cost;m.progress=Math.min(m.required,m.progress+option.progress);c.response=response;c.approach=payload.approach;c.handledAt=now;return true;
+   W.change(p,-option.cost,'论文返修：'+option.text,'paper',now,c.id);m.progress=Math.min(m.required,m.progress+option.progress);c.response=response;c.approach=payload.approach;c.handledAt=now;return true;
   }
-  if(action==='paper_publish'){const m=p.paper;check(m.phase==='proof','论文还没有完成审稿与返修');check(p.funds>=m.fee,'科研经费不足，版面费需要 '+m.fee);p.funds-=m.fee;m.paidFee=m.fee;accept(s,p,now);return true;}
+  if(action==='paper_publish'){const m=p.paper;check(m.phase==='proof','论文还没有完成审稿与返修');check(p.funds>=m.fee,'科研经费不足，版面费需要 '+m.fee);W.change(p,-m.fee,'论文版面费：'+(m.title||'当前稿件'),'paper',now);m.paidFee=m.fee;accept(s,p,now);return true;}
   if(!['student_publish','student_review_help'].includes(action))return false;
   const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt),t=st?.task;check(t?.type==='paper','请选择本组正在处理论文的学生');
-  if(action==='student_publish'){check(t.status==='proof','学生论文尚未进入待发表阶段');check(p.funds>=t.fee,'科研经费不足，学生论文版面费需要 '+t.fee);p.funds-=t.fee;t.paidFee=t.fee;finishStudent(s,p,st,now);}
-  else{check(t.status==='revision','当前不在返修阶段');const latest=t.reviewHistory.at(-1);check(!latest.helpedAt,'这一轮已经协助过返修');check(p.funds>=20,'协助补充验证需要 20 经费');p.funds-=20;latest.helpedAt=now;onHelp(p,st,now);advanceStudent(s,p,st,8,now);}
+  if(action==='student_publish'){check(t.status==='proof','学生论文尚未进入待发表阶段');check(p.funds>=t.fee,'科研经费不足，学生论文版面费需要 '+t.fee);W.change(p,-t.fee,'学生论文版面费：'+st.name+' · '+t.title,'paper',now,t.id);t.paidFee=t.fee;finishStudent(s,p,st,now);}
+  else{check(t.status==='revision','当前不在返修阶段');const latest=t.reviewHistory.at(-1);check(!latest.helpedAt,'这一轮已经协助过返修');check(p.funds>=20,'协助补充验证需要 20 经费');W.change(p,-20,'协助学生返修：'+st.name,'paper',now,t.id);latest.helpedAt=now;onHelp(p,st,now);advanceStudent(s,p,st,8,now);}
   return true;
  }
  return{migrate,settleMentor,submit,submitStudent,settleStudent,finishStudentRevision,dispatch,journals};

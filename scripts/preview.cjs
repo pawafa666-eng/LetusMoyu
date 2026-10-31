@@ -1,9 +1,10 @@
 // Isolated, in-memory fixtures. This plugin is only registered for Vite serve.
 const G=require('../cloudfunctions/letusMoyu/game.cjs');
+const Ledger=require('../cloudfunctions/letusMoyu/ledger.cjs');
 const Correspondence=require('../cloudfunctions/letusMoyu/correspondence.cjs');
 const {randomUUID}=require('node:crypto');
 module.exports=function previewServer(){
- const now=Date.now(),uid='preview-civil',s=G.createRoom('PREVIEW001',uid,'fafa','civil',now-24*G.HOUR);G.join(s,'preview-air','起飞博士',now-24*G.HOUR);
+ let clockOffset=0;const now=(Date.now()+clockOffset),uid='preview-civil',s=G.createRoom('PREVIEW001',uid,'fafa','civil',now-24*G.HOUR);G.join(s,'preview-air','起飞博士',now-24*G.HOUR);
  const p=s.players[uid];p.funds=1800;p.rep=5;p.credits=1;p.position=1;p.paper.progress=64;p.patent.progress=48;s.players['preview-air'].position=17;
  s.projects[0]={def:0,owner:uid,lastAt:now,signedAt:now,elapsed:0,value:0,stock:[],finance:{model:'contract',totalFunding:1500,advance:0,allocatedFunding:0,receivedFunding:0,initialInvestment:0,operatingIncome:0}};
  for(const c of [p.admissions.candidates[0],p.admissions.candidates.find(x=>x.degree==='phds')])G.execute(s,uid,'student_hire',{id:c.id},now);
@@ -24,18 +25,21 @@ module.exports=function previewServer(){
  for(const st of p.students){st.wage.buffer=100;st.wage.lastAt=now;}
  G.World.migrate(s,now);G.World.companyOffer(s,p,now);G.World.applicants(s,p,now);
  p.paper.progress=100;G.Peer.submit(s,p,now-2*G.HOUR,()=>.1);G.Peer.settleMentor(s,p,now);p.paper.progress=30;
+ G.Living.migrate(s,now);G.Institute.migrate(s,now);G.Joint.migrate(s);G.Living.request(s,p,now);
+ for(const actor of Object.values(s.players)){delete actor.ledger;actor._financePending=[];}G.Wallet.prepare(s,now);
  let previousScenario='normal';
  const receipts=new Map(),rows=new Map(),read=async(tx,col,id)=>col==='letus_moyu_members'?{roomId:s.id}:col==='letus_moyu_rooms'?{state:JSON.stringify(s)}:rows.get(col+':'+id)||null;
- const db={collection(col){let filter={},offset=0,size=40;const q={doc(id){return{async set(v){rows.set(col+':'+id,v)}}},where(w){filter=w;return q},orderBy(){return q},skip(n){offset=n;return q},limit(n){size=n;return q},async get(){return{data:[...rows.entries()].filter(([k,v])=>k.startsWith(col+':')&&Object.entries(filter).every(([f,x])=>v[f]===x)).map(x=>x[1]).sort((a,b)=>b.updatedAt-a.updatedAt).slice(offset,offset+size)}}};return q}};
+ const db={command:{lt:n=>({$lt:n})},collection(col){let filter={},offset=0,size=40;const q={doc(id){return{async set(v){rows.set(col+':'+id,v)}}},where(w){filter=w;return q},orderBy(){return q},skip(n){offset=n;return q},limit(n){size=n;return q},async get(){return{data:[...rows.entries()].filter(([k,v])=>k.startsWith(col+':')&&Object.entries(filter).every(([f,x])=>x&&typeof x==='object'&&'$lt'in x?v[f]<x.$lt:v[f]===x)).map(x=>x[1]).sort((a,b)=>(b.seq||b.updatedAt)-(a.seq||a.updatedAt)).slice(offset,offset+size)}}};return q}};
  const mail=Correspondence.createMailService({Game:G,db,read,adminUids:new Set([uid])});
  return{name:'isolated-game-preview',configureServer(server){server.middlewares.use('/__preview/action',async(req,res)=>{
   if(req.method!=='POST'){res.statusCode=405;res.end();return}res.setHeader('Content-Type','application/json');
   try{let body='';for await(const chunk of req){body+=chunk;if(body.length>16000)throw Error('请求过长')}const{action,payload={},requestId,previewPlayer,previewScenario}=JSON.parse(body),actor=previewPlayer==='air'?'preview-air':uid;
     if(previewScenario&&previewScenario!==previousScenario){previousScenario=previewScenario;const p=s.players[uid];if(previewScenario==='proof'){p.paper.phase='proof';p.paper.fee=80;p.paper.progress=100;p.paper.required=100;}else if(previewScenario==='student'){const st=p.students[0];st.task.progress=st.task.target;G.Peer.submitStudent(st.task,now-2*G.HOUR);st.task._reviewRoll=.1;G.Peer.settleStudent(s,p,st,now);}}
    if(receipts.has(requestId)){res.end(JSON.stringify({...receipts.get(requestId),replayed:true}));return}
-   if(Correspondence.queries.has(action)){res.end(JSON.stringify({ok:true,...await mail.query(actor,action,payload,Date.now())}));return}
-   const copy=structuredClone(s);let extra={};if(Correspondence.actions.has(action)){G.settle(copy,Date.now());extra=await mail.apply(db,copy,actor,action,payload,Date.now())}else G.execute(copy,actor,action,payload,Date.now(),()=>.55);copy.version++;Object.assign(s,copy);
-   const data={ok:true,state:G.view(s,actor,Date.now()),savedAt:Date.now(),...extra};receipts.set(requestId,data);res.end(JSON.stringify(data));
+   if(action==='ledger_list'){res.end(JSON.stringify({ok:true,...await Ledger.query(db,read,actor,payload)}));return}
+   if(Correspondence.queries.has(action)){res.end(JSON.stringify({ok:true,...await mail.query(actor,action,payload,(Date.now()+clockOffset))}));return}
+   const copy=structuredClone(s);let extra={};if(action==='__preview_clock'){clockOffset+=Number(payload.hours)*G.HOUR;G.execute(copy,actor,'state',{},(Date.now()+clockOffset));}else if(action==='__preview_level'){const lv=Number(payload.level);if(lv>copy.lab.level){copy.lab.level=lv;G.Operations.promote(copy,lv,(Date.now()+clockOffset));}G.execute(copy,actor,'state',{},(Date.now()+clockOffset));}else if(Correspondence.actions.has(action)){G.settle(copy,(Date.now()+clockOffset));extra=await mail.apply(db,copy,actor,action,payload,(Date.now()+clockOffset))}else G.execute(copy,actor,action,payload,(Date.now()+clockOffset),()=>.55);await G.Wallet.flush(db,copy);copy.version++;Object.assign(s,copy);
+   const data={ok:true,state:G.view(s,actor,(Date.now()+clockOffset)),savedAt:(Date.now()+clockOffset),...extra};receipts.set(requestId,data);res.end(JSON.stringify(data));
   }catch(error){res.end(JSON.stringify({ok:false,error:error.message}))}
  })}}
 }

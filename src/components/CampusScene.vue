@@ -17,6 +17,7 @@ const emit=defineEmits<{select:[index:number];unavailable:[]}>()
 const host=ref<HTMLDivElement>(),canvas=ref<HTMLCanvasElement>()
 const labels=ref<{x:number;y:number;name:string}[]>([])
 let scene:T.Scene,camera:T.OrthographicCamera,renderer:T.WebGLRenderer,controls:OrbitControls,resize:ResizeObserver,frame=0,resizeFrame=0,last=0,lastWidth=0,lastHeight=0,center:T.Group
+let showcase:T.Group|undefined,showcaseCount=-1
 let drone:T.Group,rover:T.Group,dead=false,ready=false,level=0
 const pawns=new Map<string,Scholar>(),animated=new Map<string,string>(),tiles:T.Object3D[]=[],owners:T.Mesh[]=[]
 type Walk={motion:Motion;start:number;resolve:()=>void}
@@ -27,6 +28,7 @@ function place(id:string,i:number){const v=position(i);v.x+=offset(id);v.z+=.36;
 function clearObject(o:T.Object3D){o.traverse(obj=>{if(obj instanceof T.Mesh){obj.geometry.dispose();for(const m of Array.isArray(obj.material)?obj.material:[obj.material])m.dispose()}})}
 function sync(){
  if(!ready)return
+ if(isCampus){const demos=Object.values(props.state.players).flatMap(p=>p.living?.transfers.filter(t=>t.route==='demo'&&t.status==='completed')||[]);if(demos.length!==showcaseCount){if(showcase){scene.remove(showcase);clearObject(showcase)}showcaseCount=demos.length;showcase=new T.Group();showcase.position.set(2.1,.1,1);for(let i=0;i<Math.min(4,demos.length);i++){box(showcase,.4,.5,.4,i*.55,.25,0,0x8eaab8);box(showcase,.5,.06,.5,i*.55,.55,0,0xd6b77b)}scene.add(showcase)}}
  if(level!==props.state.lab.level){if(center){scene.remove(center);clearObject(center)}level=props.state.lab.level;center=centerModel(level);center.position.y=.1;scene.add(center)}
  for(const p of Object.values(props.state.players)){
   const here=(p.scene||'campus')===region,at=isCampus?p.position:p.world?.positions[region]||0;

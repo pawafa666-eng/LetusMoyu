@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomUUID,randomInt}=require('node:crypto'),D=require('./world-content.cjs'),{fullName}=require('./people.cjs');
 const random=()=>randomInt(0,1000000)/1000000,clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 function cadence(rep,kind,HOUR){return Math.max(kind==='company'?2:1,(kind==='company'?9:6)/(1+Math.max(0,rep)/(kind==='company'?15:12)))*HOUR;}
@@ -47,7 +48,7 @@ function createWorld({check,log,reward,progress,HOUR,getPeople,getOperations,rec
   const participants=mode==='coop'?[p.id,j.partnerId]:[p.id];
   if(['self','coop'].includes(mode))for(const id of participants)check(!s.players[id].worldWork&&!s.players[id].contractWork,(id===p.id?'你':'搭子')+'正在处理另一份工作');
   let st=null;if(mode==='student')st=availableStudent(p,studentId);
-  p.funds-=cost;j.paid=cost;j.mode=mode;j.status='working';j.startedAt=now;j.participants=participants;j.studentId=st?.id||null;j.studentName=st?.name||'';
+  W.change(p,-cost,'园区活动投入：'+j.title,'living',now,j.id);j.paid=cost;j.mode=mode;j.status='working';j.startedAt=now;j.participants=participants;j.studentId=st?.id||null;j.studentName=st?.name||'';
   const speed=j.domain?getOperations().bonus(p,j.domain):0,duration=(mode==='outsource'?2:mode==='coop'?4:j.hours)*HOUR/(1+speed);j.dueAt=now+duration;j.progressPercent=0;
   if(st){st.wellbeing=Math.max(0,st.wellbeing-4);j._labor=getPeople().createWork(p,st,j.kind==='competition'?'research':'contract',duration,now,pace);st.worldWork={id:j.id};getPeople().advanceWork(p,st,j,now,now);}
   if(['self','coop'].includes(mode))for(const id of participants)s.players[id].worldWork={id:j.id,title:j.title};
@@ -61,7 +62,7 @@ function createWorld({check,log,reward,progress,HOUR,getPeople,getOperations,rec
   log(s,p.name+' 在'+D.regions.find(r=>r.id===scene).name+'前进 '+dice+' 格，到了 '+tile.name+'。',now,'travel',p.id);
  }
  function resolve(s,p,choice,now){
-  const m=p.pending,option=m.choices.find(x=>x.id===choice);check(option,'请选择有效的园区回复');check(p.funds>=option.cost,'科研经费不足，本次需要 '+option.cost);p.funds-=option.cost;
+  const m=p.pending,option=m.choices.find(x=>x.id===choice);check(option,'请选择有效的园区回复');check(p.funds>=option.cost,'科研经费不足，本次需要 '+option.cost);W.change(p,-option.cost,'园区现场活动：'+m.title,'event',now);
   if(choice==='connect'){if(m.scene==='enterprise'){if(p.world.offers.filter(o=>o.status==='open').length<4)companyOffer(s,p,now);else reward(s,p,{r:1},now);}else if(p.world.applicants.length<12)applicants(s,p,now);else reward(s,p,{m:4},now);}
   else if(choice==='visit'){const rest=['team','rest'].includes(D.locations[m.scene][m.location].type);reward(s,p,rest?{m:10,r:1}:m._roll<.25?{p:4,m:3}:{p:12,r:3,m:4},now);}
   else reward(s,p,{m:2},now);log(s,p.name+' 完成了「'+m.title+'」的小交流。',now,'travel',p.id);
@@ -69,7 +70,7 @@ function createWorld({check,log,reward,progress,HOUR,getPeople,getOperations,rec
  function claim(s,p,j,now){
   check(j.status==='ready','这项活动还没有完成');j.status='completed';j.claimedAt=now;
   if(j.kind==='company'){
-   const other=j.mode==='coop'?s.players[j.partnerId]:null,share=other?Math.floor(j.total*j.share/100):0;p.funds+=j.total-share;reward(s,p,{r:4,p:12,m:4},now);j.result='验收通过：'+p.name+' 获得 '+(j.total-share)+' 经费'+(other?'，'+other.name+' 获得 '+share+' 经费':'')+'。';if(other){other.funds+=share;reward(s,other,{r:4,p:10,m:4},now);}
+   const other=j.mode==='coop'?s.players[j.partnerId]:null,share=other?Math.floor(j.total*j.share/100):0;W.change(p,j.total-share,'企业合作验收：'+j.title,'project',now,j.id);reward(s,p,{r:4,p:12,m:4},now);j.result='验收通过：'+p.name+' 获得 '+(j.total-share)+' 经费'+(other?'，'+other.name+' 获得 '+share+' 经费':'')+'。';if(other){W.change(other,share,'企业合作分账：'+j.title,'project',now,j.id);reward(s,other,{r:4,p:10,m:4},now);}
    if(j.studentId){const st=p.students.find(x=>x.id===j.studentId);st.progress=Math.min(st.target,st.progress+8);st.paper.progress=Math.min(100,st.paper.progress+6);st.wellbeing=Math.max(0,st.wellbeing-2);}
   }else if(j.kind==='team'){
    const def=D.teams.find(t=>t.id===j.option);reward(s,p,{m:12,r:def.rep},now);for(const id of j.studentIds){const st=p.students.find(st=>st.id===id);st.wellbeing=Math.min(100,st.wellbeing+def.mood);getPeople().interact(p,st,'listen',now);getPeople().note(st,'参加了「'+def.name+'」，聊了研究之外的事。',now);}j.result='这次团建让大家轻松了一些，经历和交流便笺已保留。';
@@ -92,7 +93,7 @@ function createWorld({check,log,reward,progress,HOUR,getPeople,getOperations,rec
   }
   if(action==='world_respond'){let owner=null,j=null;for(const candidate of Object.values(s.players)){const found=candidate.world.jobs.find(j=>j.id===payload.id&&j.status==='invited'&&j.partnerId===p.id);if(found){owner=candidate;j=found;break;}}check(j,'这不是发给你的有效合作邀请');check(typeof payload.accept==='boolean','请选择接受或婉拒');if(payload.accept){energy(owner,now);start(s,owner,j,now,'coop');}else{j.status='cancelled';owner.world.offers.find(o=>o.id===j.offerId).status='open';}return true;}
   if(action==='world_team_start'){
-   check(!working(p,'team'),'这次团建还没结束');const def=D.teams.find(x=>x.id===payload.option);check(def,'请选择团建方式');const ids=payload.studentIds;check(Array.isArray(ids)&&ids.length>0&&ids.length<=8&&new Set(ids).size===ids.length,'请选择一至八位本组学生');const students=ids.map(id=>availableStudent(p,id)),cost=def.base+def.perStudent*students.length;check(p.funds>=cost,'科研经费不足，团建需要 '+cost);energy(p,now);p.funds-=cost;const j={id:randomUUID(),kind:'team',title:def.name,option:def.id,status:'working',studentIds:ids,participants:[p.id],paid:cost,startedAt:now,dueAt:now+def.hours*HOUR,createdAt:now};p.world.jobs.push(j);for(const st of students){st.worldWork={id:j.id};st._mind.loads.push({jobId:j.id,start:now,end:j.dueAt,kind:'social',share:1});}log(s,p.name+' 带 '+students.map(st=>st.name).join('、')+' 去「'+def.name+'」，支出 '+cost+' 经费。',now,'team',p.id);return true;
+   check(!working(p,'team'),'这次团建还没结束');const def=D.teams.find(x=>x.id===payload.option);check(def,'请选择团建方式');const ids=payload.studentIds;check(Array.isArray(ids)&&ids.length>0&&ids.length<=8&&new Set(ids).size===ids.length,'请选择一至八位本组学生');const students=ids.map(id=>availableStudent(p,id)),cost=def.base+def.perStudent*students.length;check(p.funds>=cost,'科研经费不足，团建需要 '+cost);energy(p,now);W.change(p,-cost,'团建：'+def.name,'living',now);const j={id:randomUUID(),kind:'team',title:def.name,option:def.id,status:'working',studentIds:ids,participants:[p.id],paid:cost,startedAt:now,dueAt:now+def.hours*HOUR,createdAt:now};p.world.jobs.push(j);for(const st of students){st.worldWork={id:j.id};st._mind.loads.push({jobId:j.id,start:now,end:j.dueAt,kind:'social',share:1});}log(s,p.name+' 带 '+students.map(st=>st.name).join('、')+' 去「'+def.name+'」，支出 '+cost+' 经费。',now,'team',p.id);return true;
   }
   if(action==='world_competition_start'){
    check(!working(p,'competition'),'先完成当前比赛准备');const def=D.contests.find(x=>x.id===payload.option);check(def,'请选择有效比赛');const ids=payload.undergradIds;check(Array.isArray(ids)&&ids.length>0&&ids.length<=4&&new Set(ids).size===ids.length&&ids.every(id=>p.world.undergraduates.some(u=>u.id===id)),'请选择一至四位已加入的本科生');const j={id:randomUUID(),kind:'competition',title:def.name,option:def.id,undergradIds:ids,total:0,cost:def.cost,hours:def.hours,domain:def.domain,createdAt:now,_roll:random()};energy(p,now);start(s,p,j,now,payload.studentId?'student':'self',payload.studentId,payload.pace);p.world.jobs.push(j);return true;

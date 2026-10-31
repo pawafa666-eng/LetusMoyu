@@ -1,4 +1,5 @@
 'use strict';
+const W=require('./wallet.cjs');
 const {randomUUID,createHash,randomInt}=require('node:crypto');
 const Data=require('./research-data-v4.cjs');
 const seed=s=>createHash('sha256').update(s).digest().readUInt32LE(0)/0x100000000;
@@ -9,7 +10,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
   if(s.academicYearDays===0)return new Date(now+8*HOUR).getUTCFullYear();
   return 1+Math.max(0,Math.floor((now-s.createdAt)/(s.academicYearDays*24*HOUR)));
  }
- function quota(s){return {masters:s.lab.level>=3?3:2,phds:s.lab.level>=4?2:1,capacity:s.lab.level>=5?12:s.lab.level>=4?8:s.lab.level>=3?6:4};}
+ function quota(s,p){return {masters:s.lab.level>=3?3:2,phds:s.lab.level>=4?2:1,capacity:(s.lab.level>=5?12:s.lab.level>=4?8:s.lab.level>=3?6:4)+(p?.institute?.faculty.length||0)*2};}
  function candidates(p,currentYear){return require('./people.cjs').makeCandidates(p,currentYear);}
  function syncYear(s,p,now){
   const current=year(s,now);
@@ -28,7 +29,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
    syncYear(s,p,now);Portfolio.migrate(s,p,now);
    for(const m of p.inbox)if(!m.rules&&Data.mailTemplates.some(t=>t.id===m.template))m.rules=structuredClone(Data.mailTemplates.find(t=>t.id===m.template));
   }
-  require('./feed.cjs').migrate(s);s.rulesVersion=7;
+  require('./feed.cjs').migrate(s);s.rulesVersion=8;
  }
  function addIdeas(p,amount){if(p.patent?.phase==='draft')p.patent.progress=clamp(p.patent.progress+amount,0,60);}
  function bonus(p){return p.researchVersion?Math.min(.12,p.papers*.02+p.patent.total*.02+p.graduates*.01):0;}
@@ -36,7 +37,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
   for(const p of Object.values(s.players)){
    syncYear(s,p,now);
    if(p.patent.phase==='review'&&p.patent.dueAt<=now){
-    const patentMeta={title:p.patent.title};p.patent.phase='draft';p.patent.progress=0;p.patent.total++;p.funds+=120;p.rep+=3;p.mood=clamp(p.mood+8,0,100);
+    const patentMeta={title:p.patent.title};p.patent.phase='draft';p.patent.progress=0;p.patent.total++;W.change(p,120,'专利授权奖励','patent',now);p.rep+=3;p.mood=clamp(p.mood+8,0,100);
     Portfolio.recordPatent(s,p,now,patentMeta,true);p.patent.title='';
     log(s,p.name+' 的游戏专利授权了：+120 经费、+3 声望，成果收益增加，技术合作来信已解锁。',now,'patent');
    }
@@ -90,7 +91,7 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
   const before={f:p.funds,p:p.paper.progress+p.paper.bank,m:p.mood,r:p.rep,t:p.tutor,idea:p.patent.progress};
   if(student){student.paper.progress=clamp(student.paper.progress+Math.max(0,delta.p||0),0,100);if(student.task?.type==='paper'&&student.task.status==='working'){student.task.progress=student.paper.progress;Portfolio.advance(s,p,student,0,now);}student.wellbeing=clamp(student.wellbeing+(delta.m||0),0,100);delta.p=Math.floor((delta.p||0)/3);delta.m=Math.ceil((delta.m||0)/2);}
   reward(s,p,delta,now);if(delta.idea)addIdeas(p,delta.idea);
-  if(Number.isInteger(delta.card)){if(p.hand.length<6)p.hand.push(delta.card);else p.funds+=20;}
+  if(Number.isInteger(delta.card)){if(p.hand.length<6)p.hand.push(delta.card);else W.change(p,20,'手牌已满，来信科研卡兑换','card',now);}
   if(delta.studentMood)for(const st of p.students.filter(x=>!x.graduatedAt))st.wellbeing=clamp(st.wellbeing+delta.studentMood,0,100);
   if(option.assignVisit)Portfolio.assign(s,p,student,'visit','云杉理工大学城市智能系统短期访学',false,now,true);
   if((selected.activity||template.activity)==='conference'&&index===0)Portfolio.activity(p,student,{type:'conference',title:template.subject,venue:'城市交叉创新学术交流会',status:selected.kind==='tricked'?'withdrawn':'completed',summary:selected.result},now);
@@ -102,10 +103,10 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
  function reply(s,p,payload,now,rng){chooseMail(s,p,p.inbox.find(m=>m.id===payload.id),payload,now,rng);}
  function hire(s,p,payload,now){
   const candidate=p.admissions.candidates.find(c=>c.id===payload.id);check(candidate&&!candidate.hired,'这位同学已入组或不在本学年招生册里');
-  const limits=quota(s),degree=candidate.degree;check(p.admissions[degree]<limits[degree],'本学年的'+(degree==='masters'?'硕士':'博士')+'指标已用完');
+  const limits=quota(s,p),degree=candidate.degree;check(p.admissions[degree]<limits[degree],'本学年的'+(degree==='masters'?'硕士':'博士')+'指标已用完');
   check(p.students.filter(st=>!st.graduatedAt).length<limits.capacity,'课题组已满，先陪现在的学生完成研究');
   const cost=degree==='masters'?100:160;check(p.funds>=cost,'科研经费不足，入组支持需要 '+cost+' 经费');
-  p.funds-=cost;p.admissions[degree]++;candidate.hired=true;
+  W.change(p,-cost,'招收'+(degree==='phds'?'博士生':'硕士生')+'：'+candidate.name,'students',now,candidate.id);p.admissions[degree]++;candidate.hired=true;
   p.students.push({id:randomUUID(),name:candidate.name,avatarSeed:candidate.id,degree,topic:candidate.topic,trait:candidate.trait,progress:0,target:degree==='masters'?100:150,wellbeing:75,lastStudyAt:now,studyBuffer:0,lastCareAt:0,joinedAt:now,graduatedAt:0});
   Portfolio.initStudent(p.students.at(-1));getPeople().initStudent(p,p.students.at(-1),now,candidate);p.students.at(-1)._candidateId=candidate.id;
   log(s,p.name+' 招收了'+(degree==='masters'?'硕士生':'博士生')+candidate.name+'，方向：'+candidate.topic+'。研究要关心，休息也要关心。',now,'students');
@@ -113,17 +114,17 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
  function care(s,p,payload,now){
   const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt);check(st,'这位同学不在当前课题组');
   check(!st.lastCareAt||now-st.lastCareAt>=4*HOUR,'刚刚交流过了，让同学自己消化一下，四小时后再来');
-  if(st._mind){if(payload.mode==='sprint'){check(p.funds>=20,'这次讨论需要 20 经费支持');p.funds-=20;}getPeople().interact(p,st,payload.mode,now);st.lastCareAt=now;progress(p,payload.mode==='guide'?3:1);log(s,p.name+' 与'+st.name+' 聊了聊下一步与最近的状态，观察便笺已更新。',now,'students');return;}
+  if(st._mind){if(payload.mode==='sprint'){check(p.funds>=20,'这次讨论需要 20 经费支持');W.change(p,-20,'学生实验与讨论支持：'+st.name,'students',now,st.id);}getPeople().interact(p,st,payload.mode,now);st.lastCareAt=now;progress(p,payload.mode==='guide'?3:1);log(s,p.name+' 与'+st.name+' 聊了聊下一步与最近的状态，观察便笺已更新。',now,'students');return;}
   const modes={guide:{p:10,m:3,text:'讨论了下一小步'},listen:{p:3,m:15,text:'聊了聊最近的状态'},sprint:{p:16,m:-12,text:'共同冲刺了一个小目标'}};
   check(Object.hasOwn(modes,payload.mode),'请选择有效的培养方式');const mode=modes[payload.mode];
-  if(payload.mode==='sprint'){check(p.funds>=20,'这次小实验需要 20 经费');p.funds-=20;}
+  if(payload.mode==='sprint'){check(p.funds>=20,'这次小实验需要 20 经费');W.change(p,-20,'学生实验与讨论支持：'+st.name,'students',now,st.id);}
   st.progress=Math.min(st.target,st.progress+mode.p);st.wellbeing=clamp(st.wellbeing+mode.m,0,100);st.lastCareAt=now;progress(p,payload.mode==='guide'?3:1);
   Portfolio.advance(s,p,st,1,now,true);
   log(s,p.name+' 和'+st.name+mode.text+'：学生进度 +'+mode.p+'，心情 '+(mode.m>0?'+':'')+mode.m+'。',now,'students');
  }
  function graduate(s,p,payload,now){
   const st=p.students.find(x=>x.id===payload.id&&!x.graduatedAt);check(st,'这位同学已经毕业或不在课题组');check(st.progress>=st.target,'研究还没到终点，继续陪同学一点点做');check(st.wellbeing>=40,'先关心一下同学的状态，再准备毕业');
-  check(!st.contractWork,'先完成同学的横向任务，再安排毕业');check(!st.procurementWork&&!st.worldWork,'先完成同学的采购或园区活动，再安排毕业');check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';p.funds+=phd?200:120;p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
+  check(!st.contractWork,'先完成同学的横向任务，再安排毕业');check(!st.procurementWork&&!st.worldWork,'先完成同学的采购或园区活动，再安排毕业');check(!st.task||st.task.status==='completed','先处理同学当前的任务，再安排毕业');st.graduatedAt=now;p.graduates++;const phd=st.degree==='phds';W.change(p,phd?200:120,'学生毕业奖励：'+st.name,'students',now,st.id);p.rep+=phd?4:2;progress(p,phd?15:8);addIdeas(p,phd?12:8);
   log(s,st.name+' 顺利毕业！'+p.name+' 获得经费、声望和研究灵感，培养成果计入长期收益。',now,'students');
   if(p.students.length>36)p.students=p.students.filter(x=>!x.graduatedAt).concat(p.students.filter(x=>x.graduatedAt).slice(-24));
  }
@@ -131,10 +132,10 @@ function createSystems({C,log,progress,reward,draw,check,HOUR,researchWeight=()=
   check(!p.pending,'先完成当前地点的选择');check(p.patent.phase==='draft','专利正在审查，先做别的研究也可以');
   if(action==='patent_work'){
    check(p.actionCount>0&&p.patent.lastWorkAction!==p.actionCount,'每次移动后可以整理一次交底');check(p.patent.progress<60,'交底已经齐了，可以申请');check(p.funds>=40,'整理技术交底需要 40 经费');
-   p.funds-=40;addIdeas(p,15);p.patent.lastWorkAction=p.actionCount;
+   W.change(p,-40,'整理专利技术交底','patent',now);addIdeas(p,15);p.patent.lastWorkAction=p.actionCount;
    log(s,p.name+' 整理了技术交底：专利灵感 +15，经费 -40。',now,'patent');
   }else{
-   check(p.patent.progress>=60,'专利灵感达到 60 才能申请');check(p.funds>=80,'申请需要 80 经费');p.funds-=80;p.patent.phase='review';p.patent.dueAt=now+(s.lab.level>=4?HOUR:2*HOUR);
+   check(p.patent.progress>=60,'专利灵感达到 60 才能申请');check(p.funds>=80,'申请需要 80 经费');W.change(p,-80,'申请专利','patent',now);p.patent.phase='review';p.patent.dueAt=now+(s.lab.level>=4?HOUR:2*HOUR);
    log(s,p.name+' 申请了一项游戏专利，服务器会替你等审查结果。',now,'patent');
   }
  }

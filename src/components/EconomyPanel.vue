@@ -17,5 +17,5 @@ const money=(n:number)=>Math.floor(n).toLocaleString()
  <div class="section-title"><h2>老师定标准，学校看账单。</h2><span>{{ students.length }} 位在读学生</span></div>
  <StudentWage v-for="st in students" :key="st.id" :student="st" :busy="busy" @act="(a,p)=>emit('act',a,p)"/><p v-if="!students.length" class="empty-note">还没有在读学生，暂时没有劳务支出。</p>
  <div class="section-title"><h2>从两张桌子，到院士课题组</h2></div><ol class="career-path"><li v-for="(level,i) in content.lab" :key="i" :class="{unlocked:state.lab.level>i}"><i>{{ i+1 }}</i><div><b>{{ content.operations.careers[i] }}</b><h3>{{ level.name }}</h3><p>累计建设 {{ money(level.funds) }} 经费 · {{ level.credits }} 成果点 · {{ level.rep }} 登记声望</p><small v-if="i">升级时双方各获 {{ money(content.operations.grants[i]!) }} 启动经费；工资 20/小时，离线最多 500。</small></div><span>{{ state.lab.level>i?'已解锁':'待共建' }}</span></li></ol>
- <aside class="future-group"><LockKeyhole :size="23"/><div><h3>教授也会带自己的学生。</h3><p>教授招聘、教授下设学生、研究所分支、新场景与院士团队玩法：待解锁。本版先开放职称晋升、采购资产、工资和学生劳务。</p></div></aside>
+ <aside class="future-group"><LockKeyhole :size="23"/><div><h3>教授也会带自己的学生。</h3><p>三级可以引进教师并委托培养，四级组建方向团队，五级成立城市院士工作站。完整入口在“实验室生活 → 教师与研究所”，师生劳务和启动支出分别记账。</p></div></aside>
 </template>
