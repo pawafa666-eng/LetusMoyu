@@ -1,4 +1,4 @@
-# 云存档结构（v0.4）
+# 云存档结构（v0.7）
 
 使用现有 CloudBase NoSQL。下列五个集合均为 ADMINONLY，由事件云函数 letusMoyu 读写。浏览器只调用登录和函数，不直接读写数据库。
 
@@ -12,7 +12,7 @@
 
 ## 园区状态
 
-state.rulesVersion 为 4；玩家档案 archiveVersion 为 4。主要对象：
+state.rulesVersion 为 7；玩家档案 archiveVersion 为 4。主要对象：
 
 - players[uid].profile：显示名、固定学校“不急大学”、研究方向和自我介绍。
 - portfolio.papers / patents：成果 UUID、题目、作者快照（ID、姓名、导师/学生/合作者角色）、期刊或虚拟专利号、发表时间、来源、状态。
@@ -67,3 +67,18 @@ rulesVersion=6，沿用原集合、权限和原生账号。迁移保留等级、
 - students[].wage：rate / lastAt / buffer / total，最低硕士 1、博士 2，每人待发上限 100。待发不足时按比例分配可用整数经费，余款保留。procurementWork 保存订单与 job UUID，供横向、活动和毕业互斥检查。
 
 新增动作 procure_create / procure_start / procure_confirm / procure_cancel / asset_mode / asset_data / student_wage。供应商报价和阶段时间取服务端目录，客户端不能自报价格、截止时间或学校工资。付款、流程状态、建账、双方升级与工资/劳务结算都在原有房间事务内完成，沿用请求 UUID 防重和滚动快照。
+
+
+## v0.7 连续研究、园区场景与审稿
+
+仍使用上述五个 ADMINONLY 集合，不新增公开读写集合。所有新操作进入原事件函数的 UID 白名单、成员检查、事务、请求回执与滚动快照。
+
+- student.resume：本科/硕士经历、作品、推荐意见、申请说明、面谈记录；完整姓名按稳定 ID 生成。旧姓名变更时同步同一学生 ID 对应的成果作者，保留进度和劳务。
+- student._mind：服务端内部能力、积极性、精力、关系、特长、性格维度及真实占用区间。student.task._difficulty、job._labor 与本科生 _skill 均为内部字段。公开状态和下载副本递归移除所有下划线前缀字段，另移除旧 reviewRoll 与学生数值 wellbeing。
+- student.personality / moodText / relationshipText / researchPace / observations：可见文字反馈。availability 提供能否安排工作、出行或毕业的布尔值，不暴露内部阈值。
+- player.scene / world.positions：校园与两个新区独立位置；lastMove.scene 决定动画属于哪个地区。新区地点事件、选择与消耗均由服务端保存。
+- player.world：企业邀请、下一次主动联系时间、本科生报名与名册、企业/团建/竞赛 jobs。声望参与联系间隔、报名人数、合作金额与比赛结果。对方的未处理企业邀请和本科生报名材料不返回。
+- player.worldWork、student.worldWork 与原横向/采购工作位共同校验，防止外部事务重复占用；写作等个人研究可同时持续但速度降低。
+- paper / student.task.reviewHistory：具体审稿意见、回应、处理时间、期刊与明确版面费。proof 阶段等待显式付款，不自动扣费；发表档案保留审稿记录和实际版面费。旧发表成果不追缴。
+
+迁移在同步时惰性运行，不重置财产、项目、论文、设备、劳务或账号。内部完整备份保存在游戏目录上一级的“备份”中，不提交 GitHub；网页导出为已过滤内部字段的玩家副本，不可替代管理员备份。

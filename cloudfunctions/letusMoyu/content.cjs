@@ -86,4 +86,4 @@ const lab=[
  {name:'低空交通与智能建造研究所',funds:50000,credits:12,rep:100},
  {name:'未来城市院士课题组',funds:180000,credits:30,rep:250}
 ];
-module.exports={tiles,projects,equipment,events,cards,lab,contracts:require('./contract-content.cjs'),research:require('./research-data-v4.cjs'),operations:require('./operations-content.cjs')};
+module.exports={tiles,projects,equipment,events,cards,lab,contracts:require('./contract-content.cjs'),research:require('./research-data-v4.cjs'),operations:require('./operations-content.cjs'),journals:require('./peer-review.cjs').journals,world:require('./world-content.cjs')};

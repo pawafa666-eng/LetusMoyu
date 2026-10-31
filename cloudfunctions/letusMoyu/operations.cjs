@@ -1,7 +1,7 @@
 'use strict';
 const {randomUUID}=require('node:crypto'),D=require('./operations-content.cjs');
 const round=n=>Math.round(n*1e6)/1e6;
-function createOperations({check,log,progress,HOUR}){
+function createOperations({check,log,progress,HOUR,getPeople=()=>null}){
  const account=now=>({lastAt:now,buffer:0,total:0});
  const current=p=>p.procurement.orders.find(o=>!['completed','cancelled'].includes(o.status));
  const item=id=>D.catalog.find(x=>x.id===id);
@@ -20,9 +20,9 @@ function createOperations({check,log,progress,HOUR}){
    accrue(p.economy.salary,now,p.career.salaryRate,D.salaryCap);
    for(const st of p.students)accrue(st.wage,now,st.graduatedAt?0:st.wage.rate,D.wageCap);
    for(const a of p.assets)accrue(a.rental,now,a.mode==='rental'?item(a.sku).rent:0,D.rentCap);
-   const o=current(p);if(o?.status==='working'&&o.job.dueAt<=now){
-    o.status='ready';o.job.finishedAt=o.job.dueAt;
-    if(o.job.studentId){const st=p.students.find(x=>x.id===o.job.studentId);if(st){if(st.procurementWork?.jobId===o.job.id)st.procurementWork=null;st.wellbeing=Math.max(0,st.wellbeing-2);}}
+   const o=current(p);let finished=0;if(o?.status==='working'){if(o.job._labor){const st=p.students.find(st=>st.id===o.job.studentId);finished=getPeople().advanceWork(p,st,o.job,o.job._labor.lastAt,now);}else if(o.job.dueAt<=now)finished=o.job.dueAt;}if(finished){
+    o.status='ready';o.job.finishedAt=finished;
+    if(o.job.studentId){const st=p.students.find(x=>x.id===o.job.studentId);if(st){if(st.procurementWork?.jobId===o.job.id)st.procurementWork=null;st.wellbeing=Math.max(0,st.wellbeing-2);if(o.job._labor)getPeople().finishWork(st,o.job._labor,finished);}}
     log(s,p.name+' 的采购「'+item(o.sku).name+'」已完成 '+D.stages[o.stage]+'，等待确认。',now,'procurement',p.id);
    }
   }
@@ -34,7 +34,7 @@ function createOperations({check,log,progress,HOUR}){
   const students=p.students.filter(st=>Math.floor(st.wage.buffer+1e-7)>0),dues=students.map(st=>Math.floor(st.wage.buffer+1e-7)),due=dues.reduce((a,b)=>a+b,0),budget=Math.min(due,Math.floor(p.funds));
   const paid=dues.map(n=>due?Math.floor(budget*n/due):0);let remainder=budget-paid.reduce((a,b)=>a+b,0);
   for(let i=0;remainder>0&&i<paid.length;i++)if(paid[i]<dues[i]){paid[i]++;remainder--;}
-  let wages=0;for(let i=0;i<students.length;i++){const st=students[i],n=paid[i];st.wage.buffer=round(st.wage.buffer-n);st.wage.total+=n;wages+=n;}
+  let wages=0;for(let i=0;i<students.length;i++){const st=students[i],n=paid[i];st.wage.buffer=round(st.wage.buffer-n);st.wage.total+=n;getPeople()?.paid(st,n,dues[i]);wages+=n;}
   p.funds=round(p.funds-wages);p.economy.totalWagesPaid+=wages;
   if(salary||rental||wages){
    const period=Math.floor(now/HOUR),previous=p.economy.lastStatement;
@@ -71,16 +71,17 @@ function createOperations({check,log,progress,HOUR}){
    p.procurement.orders=p.procurement.orders.slice(-23);p.procurement.orders.push({id:randomUUID(),sku:sku.id,stage:0,status:'available',supplier:null,price:0,paid:0,createdAt:now,history:[],job:null});
    log(s,p.name+' 发起了「'+sku.name+'」采购，先找供应商，再走招标与合同流程。',now,'procurement',p.id);return true;
   }
-  if(!['procure_start','procure_confirm','procure_cancel'].includes(action))return false;
+  if(!['procure_start','procure_confirm','procure_cancel','procure_takeover'].includes(action))return false;
   const o=current(p);check(o&&o.id===payload.id,'这份在办采购不存在，请刷新');check(o.stage===payload.stage,'采购阶段已经变化，请刷新');
+  if(action==='procure_takeover'){check(o.status==='working'&&o.job.studentId,'只能收回学生正在代办的流程');const st=p.students.find(st=>st.id===o.job.studentId),w=o.job._labor,remaining=w?Math.max(0,1-w.progress/w.target):1,sup=D.suppliers.find(x=>x.id===o.supplier);if(w)getPeople().finishWork(st,w,now);st.procurementWork=null;st.wellbeing=Math.min(100,st.wellbeing+3);o.job={id:randomUUID(),mode:'self',studentId:null,studentName:'',startedAt:now,dueAt:now+Math.max(60000,Math.ceil(120*sup.time*remaining)*60000)};log(s,p.name+' 收回学生代办，自己继续「'+D.stages[o.stage]+'」。',now,'procurement',p.id);return true;}
   if(action==='procure_cancel'){check(!o.paid,'已经付款的采购需要继续完成验收和建账');check(o.status!=='working','先等当前流程完成，再取消未付款采购');o.status='cancelled';log(s,p.name+' 取消了未付款采购，未扣设备款。',now,'procurement',p.id);return true;}
   if(action==='procure_start'){
    check(o.status==='available','当前流程已经安排，请勿重复办理');check(['self','student'].includes(payload.mode),'请选择本人或学生办理');
-   let st=null;if(payload.mode==='student'){st=p.students.find(x=>x.id===payload.studentId&&!x.graduatedAt);check(st,'请选择本组在读学生');check(!st.contractWork&&!st.procurementWork,'这位同学正在处理横向或采购');check(st.wellbeing>=35,'这位同学心情偏低，先关心一下再安排采购');check(!st.task||!['conference','visit'].includes(st.task.type)||st.task.status==='completed','这位同学正在参会或访学');}
+   let st=null;if(payload.mode==='student'){st=p.students.find(x=>x.id===payload.studentId&&!x.graduatedAt);check(st,'请选择本组在读学生');check(!st.contractWork&&!st.procurementWork&&!st.worldWork,'这位同学正在处理横向或采购');check(st.wellbeing>=35,'这位同学心情偏低，先关心一下再安排采购');check(!st.task||!['conference','visit'].includes(st.task.type)||st.task.status==='completed','这位同学正在参会或访学');}
    if(o.stage===0){const sup=D.suppliers.find(x=>x.id===payload.supplier);check(sup,'请选择供应商');o.supplier=sup.id;o.price=Math.ceil(round(item(o.sku).price*sup.multiplier));}
    if(o.stage===2){check(p.funds>=o.price,'科研经费不足，采购合同需要 '+o.price);p.funds=round(p.funds-o.price);o.paid=o.price;}
    const sup=D.suppliers.find(x=>x.id===o.supplier),duration=Math.ceil((st?40:120)*sup.time)*60000;o.status='working';o.job={id:randomUUID(),mode:payload.mode,studentId:st?.id||null,studentName:st?.name||'',startedAt:now,dueAt:now+duration};
-   if(st){st.procurementWork={orderId:o.id,jobId:o.job.id};st.wellbeing=Math.max(0,st.wellbeing-4);}
+   if(st){st.procurementWork={orderId:o.id,jobId:o.job.id};st.wellbeing=Math.max(0,st.wellbeing-4);o.job._labor=getPeople().createWork(p,st,'procurement',duration,now,payload.pace);getPeople().advanceWork(p,st,o.job,now,now);}
    log(s,p.name+' 安排'+(st?st.name:'自己')+'办理「'+D.stages[o.stage]+'」'+(o.stage===2?'，合同支付 '+o.paid+' 经费':'')+'。',now,'procurement',p.id);
   }else{
    check(o.status==='ready','当前流程还没办完，暂时不能确认');o.history.push({stage:o.stage,title:D.stages[o.stage],at:now,job:o.job});o.job=null;

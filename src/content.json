@@ -1770,7 +1770,7 @@
       {
         "id": "paper",
         "name": "写一篇论文",
-        "description": "积累论文进度，完成后送审并记录标题与师生作者。",
+        "description": "持续整理研究成果，审稿后按意见返修；老师确认版面费后进入师生发表档案。",
         "cost": 0,
         "target": 100
       },
@@ -1810,7 +1810,7 @@
       },
       {
         "level": 2,
-        "text": "双方晋升副教授；各获 1000 启动经费；学校工资 20/小时，离线上限 500；改为研究所领导认可"
+        "text": "双方晋升副教授；各获 1000 启动经费；学校工资 20/小时，离线上限 500；改为研究所领导认可；开放企业合作园、创客生活区、团建与本科生比赛"
       },
       {
         "level": 3,
@@ -1818,7 +1818,7 @@
       },
       {
         "level": 4,
-        "text": "研究所负责人，各获 30000 启动经费；在组上限 8、博士指标 +1；研究所分支与新园区待解锁"
+        "text": "研究所负责人，各获 30000 启动经费；在组上限 8、博士指标 +1；研究所分支待解锁"
       },
       {
         "level": 5,
@@ -2039,5 +2039,255 @@
     "salaryCap": 500,
     "wageCap": 100,
     "rentCap": 1000
+  },
+  "journals": [
+    {
+      "id": "campus",
+      "name": "不急大学开放研究",
+      "fee": 80
+    },
+    {
+      "id": "city",
+      "name": "城市智能工程学报",
+      "fee": 140
+    },
+    {
+      "id": "future",
+      "name": "空地协同前沿",
+      "fee": 240
+    }
+  ],
+  "world": {
+    "regions": [
+      {
+        "id": "campus",
+        "name": "不急大学校园",
+        "short": "校园",
+        "level": 1,
+        "description": "熟悉的科研起点，也有新的同伴慢慢加入。"
+      },
+      {
+        "id": "enterprise",
+        "name": "企业合作园",
+        "short": "企业合作园",
+        "level": 2,
+        "description": "让点云、机器人和无人机离开 PPT，去生产现场看看。"
+      },
+      {
+        "id": "community",
+        "name": "创客生活区",
+        "short": "创客生活区",
+        "level": 2,
+        "description": "带本科生做点有趣的事，也和同学一起放松一下。"
+      }
+    ],
+    "locations": {
+      "enterprise": [
+        {
+          "id": 0,
+          "name": "园区接待站",
+          "type": "gate"
+        },
+        {
+          "id": 1,
+          "name": "产学研合作大厅",
+          "type": "company"
+        },
+        {
+          "id": 2,
+          "name": "桥隧智造公司",
+          "type": "civil"
+        },
+        {
+          "id": 3,
+          "name": "云际低空物流",
+          "type": "air"
+        },
+        {
+          "id": 4,
+          "name": "空地协同研发车间",
+          "type": "cross"
+        },
+        {
+          "id": 5,
+          "name": "技术转移中心",
+          "type": "transfer"
+        },
+        {
+          "id": 6,
+          "name": "客户方案会议室",
+          "type": "meeting"
+        },
+        {
+          "id": 7,
+          "name": "无人机演示场",
+          "type": "air"
+        },
+        {
+          "id": 8,
+          "name": "项目比选中心",
+          "type": "company"
+        },
+        {
+          "id": 9,
+          "name": "城市验证试验场",
+          "type": "cross"
+        },
+        {
+          "id": 10,
+          "name": "行业交流茶室",
+          "type": "social"
+        },
+        {
+          "id": 11,
+          "name": "企业食堂",
+          "type": "rest"
+        }
+      ],
+      "community": [
+        {
+          "id": 0,
+          "name": "学生发展中心",
+          "type": "undergrad"
+        },
+        {
+          "id": 1,
+          "name": "本科生创新工坊",
+          "type": "competition"
+        },
+        {
+          "id": 2,
+          "name": "赛题发布台",
+          "type": "competition"
+        },
+        {
+          "id": 3,
+          "name": "低空挑战场",
+          "type": "air"
+        },
+        {
+          "id": 4,
+          "name": "桥隧创客赛场",
+          "type": "civil"
+        },
+        {
+          "id": 5,
+          "name": "答辩交流中心",
+          "type": "meeting"
+        },
+        {
+          "id": 6,
+          "name": "团建草坪",
+          "type": "team"
+        },
+        {
+          "id": 7,
+          "name": "桌游咖啡",
+          "type": "team"
+        },
+        {
+          "id": 8,
+          "name": "湖畔野餐点",
+          "type": "team"
+        },
+        {
+          "id": 9,
+          "name": "成果海报展",
+          "type": "poster"
+        },
+        {
+          "id": 10,
+          "name": "校友交流角",
+          "type": "social"
+        },
+        {
+          "id": 11,
+          "name": "城市运动场",
+          "type": "rest"
+        }
+      ]
+    },
+    "companies": [
+      {
+        "name": "临江桥隧智造",
+        "domain": "civil",
+        "topic": "桥隧多源巡检验证"
+      },
+      {
+        "name": "云际低空物流",
+        "domain": "air",
+        "topic": "园区无人机物流航线验证"
+      },
+      {
+        "name": "见微城市科技",
+        "domain": "cross",
+        "topic": "空地一体数字孪生试点"
+      },
+      {
+        "name": "方圆机器人",
+        "domain": "civil",
+        "topic": "地下空间机器人巡检联调"
+      },
+      {
+        "name": "星港空域服务",
+        "domain": "air",
+        "topic": "低空基础设施通信评估"
+      }
+    ],
+    "teams": [
+      {
+        "id": "picnic",
+        "name": "湖畔野餐",
+        "base": 60,
+        "perStudent": 25,
+        "hours": 1.5,
+        "mood": 15,
+        "rep": 1
+      },
+      {
+        "id": "boardgames",
+        "name": "桌游与奶茶",
+        "base": 50,
+        "perStudent": 20,
+        "hours": 1,
+        "mood": 12,
+        "rep": 1
+      },
+      {
+        "id": "fieldtrip",
+        "name": "城市观察团建",
+        "base": 100,
+        "perStudent": 35,
+        "hours": 2,
+        "mood": 18,
+        "rep": 3
+      }
+    ],
+    "contests": [
+      {
+        "id": "bridge",
+        "name": "桥隧智能建造创客赛",
+        "domain": "civil",
+        "cost": 180,
+        "hours": 6,
+        "prize": 900
+      },
+      {
+        "id": "uav",
+        "name": "低空物流创新挑战赛",
+        "domain": "air",
+        "cost": 220,
+        "hours": 6,
+        "prize": 1100
+      },
+      {
+        "id": "city",
+        "name": "未来城市空地协同竞赛",
+        "domain": "cross",
+        "cost": 300,
+        "hours": 8,
+        "prize": 1500
+      }
+    ]
   }
 }

@@ -10,3 +10,4 @@ backups/
 playwright-report/
 test-results/
 output/
+artifacts/

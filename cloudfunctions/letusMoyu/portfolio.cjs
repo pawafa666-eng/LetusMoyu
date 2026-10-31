@@ -3,7 +3,7 @@ const {randomUUID,createHash}=require('node:crypto');
 const Data=require('./research-data-v4.cjs');
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 const safe=(s,max=120)=>String(s||'').replace(/[\u0000-\u001f]/g,' ').trim().slice(0,max);
-function createPortfolio({C,log,progress,check,HOUR}){
+function createPortfolio({C,log,progress,check,HOUR,getPeople=()=>null,getPeer=()=>null}){
  function name(p){return p.profile?.name||p.name;}
  function title(p,kind,n,student,collaborative=false){
   const topics=collaborative?['无人机桥梁巡检','空地协同城市感知','低空基础设施数字孪生']:p.discipline==='civil'?['隧道多源点云配准','机器人结构巡检','地下空间三维重建','智慧桥梁监测']:['城市低空物流调度','低空通信与导航','无人机三维建模','起降场协同感知'];
@@ -32,7 +32,7 @@ function createPortfolio({C,log,progress,check,HOUR}){
  }
  function recordPaper(s,p,now,meta={},counted=false){
   const ids=meta.studentIds||(meta.student?[meta.student.id]:[]),authors=authorList(s,p,ids,meta.partner);
-  const work={id:randomUUID(),title:safe(meta.title)||title(p,'paper',p.papers+(counted?0:1),meta.student,meta.partner),authors,journal:['不急大学研究通讯','Future Campus Systems','城市智能与空地协同'][p.portfolio.papers.length%3],publishedAt:now,source:meta.student?'student':'self',status:'published'};
+  const work={id:randomUUID(),title:safe(meta.title)||title(p,'paper',p.papers+(counted?0:1),meta.student,meta.partner),authors,journal:require('./peer-review.cjs').journals.find(j=>j.id===(meta.journal||meta.student?.task?.journal))?.name||'不急大学研究通讯',publicationFee:meta.paidFee||meta.student?.task?.paidFee||0,reviewHistory:structuredClone(meta.reviewHistory||meta.student?.task?.reviewHistory||[]),publishedAt:now,source:meta.student?'student':'self',status:'published'};
   p.portfolio.papers.push(work);if(!counted)p.papers++;for(const id of new Set(ids)){const st=p.students.find(x=>x.id===id);if(st){initStudent(st);st.paper.total++;}}
   if(meta.partner){const q=Object.values(s.players).find(x=>x.id!==p.id);if(q){q.portfolio.papers.push(structuredClone(work));q.papers++;q.rep++;trim(q);}}
   trim(p);return work;
@@ -58,10 +58,26 @@ function createPortfolio({C,log,progress,check,HOUR}){
   for(const st of p.students.filter(x=>!x.graduatedAt)){
    initStudent(st);const t=st.task;if(!t||t.status==='completed')continue;
    if(['conference','visit'].includes(t.type)){t.progress=Math.min(t.target,Math.floor((now-t.createdAt)/(t.dueAt-t.createdAt)*t.target));if(now>=t.dueAt)finishTask(s,p,st,now);}
-   else if(t.status==='review'&&now>=t.dueAt)finishTask(s,p,st,now);
+   else if(t.type==='paper')getPeer().settleStudent(s,p,st,now);else if(t.status==='review'&&now>=t.dueAt)finishTask(s,p,st,now);
+  }
+ }
+ function advancePoints(s,p,st,amount,now){
+  initStudent(st);const t=st.task;if(!t||!['working','revision'].includes(t.status)||['visit','conference'].includes(t.type))return;t.progress=Math.min(t.target,Math.round((t.progress+amount)*1000)/1000);
+  if(t.status==='working'){if(t.type==='paper')st.paper.progress=t.progress;if(t.type==='patent')st.patent.progress=t.progress;}
+  if(t.progress>=t.target){if(t.type==='research')finishTask(s,p,st,now);else if(t.type==='paper'){if(t.status==='revision')getPeer().finishStudentRevision(t,now);else getPeer().submitStudent(t,now);}else{t.status='review';t.dueAt=now+HOUR;}}
+ }
+ function advanceContinuous(s,p,st,points,from,now){
+  if(now<=from)return;const perMs=points/(now-from);let cursor=from;
+  for(let loops=0;loops<12&&cursor<=now;loops++){
+   const t=st.task;if(!t||['completed','proof'].includes(t.status))break;
+   if(t.status==='review'){if(t.dueAt>now)break;cursor=Math.max(cursor,t.dueAt);if(t.type==='paper')getPeer().settleStudent(s,p,st,t.dueAt);else finishTask(s,p,st,t.dueAt);continue;}
+   if(!['working','revision'].includes(t.status)||perMs<=0)break;
+   const left=t.target-t.progress,doneAt=cursor+left/perMs;if(doneAt>now){advancePoints(s,p,st,Math.max(0,now-cursor)*perMs,now);break;}
+   advancePoints(s,p,st,Math.max(0,left),doneAt);cursor=doneAt;
   }
  }
  function advance(s,p,st,ticks,now,care=false){
+  if(st._mind){if(!care)advancePoints(s,p,st,ticks,now);return;}
   initStudent(st);const t=st.task;
   if(!t||t.status==='completed'){if(!care)st.paper.progress=Math.min(100,Math.round((st.paper.progress+ticks*2)*10)/10);return;}
   if(t.status!=='working'||['conference','visit'].includes(t.type))return;
@@ -74,12 +90,12 @@ function createPortfolio({C,log,progress,check,HOUR}){
   initStudent(st);const def=Data.tasks.find(x=>x.id===type);check(def,'请选择有效的学生任务');check(!st.graduatedAt,'这位同学已毕业');
   check(!st.task||st.task.status==='completed','这位同学已有进行中的任务，请先完成或取消');if(!paid){check(p.funds>=def.cost,'科研经费不足');p.funds-=def.cost;}
   const initial=type==='paper'?st.paper.progress:type==='patent'?st.patent.progress:0;
-  if(['visit','conference'].includes(type))check(!st.contractWork&&!st.procurementWork,'这位同学正在做横向或采购，请完成后再安排出行');
+  if(['visit','conference'].includes(type))check(!st.contractWork&&!st.procurementWork&&!st.worldWork,'这位同学正在做横向或采购，请完成后再安排出行');
   st.task={id:randomUUID(),type,title:safe(rawTitle)||(['paper','patent'].includes(type)?title(p,type,p.portfolio[type==='paper'?'papers':'patents'].length+1,st,partner):type==='visit'?'云杉理工大学城市智能系统短期访学':type==='conference'?'城市智能与低空交叉学术报告':'多源研究数据分析小目标'),progress:initial,target:def.target||100,status:'working',createdAt:now,dueAt:def.hours?now+def.hours*HOUR:0,partner:!!partner};
-  log(s,name(p)+' 给'+st.name+'安排了「'+st.task.title+'」。',now,'students');if(initial>=st.task.target)advance(s,p,st,0,now);
+  getPeople()?.assigned(p,st,type,now);log(s,name(p)+' 给'+st.name+'安排了「'+st.task.title+'」。',now,'students');if(initial>=st.task.target)advance(s,p,st,0,now);
  }
  function configure(s,p,payload){
-  check(p.paper.phase!=='review','论文已投稿，作者信息需在下一份稿件准备时设置');
+  check(!['review','proof'].includes(p.paper.phase),'论文已投稿，作者信息需在下一份稿件准备时设置');
   const ids=payload.studentIds??[];check(Array.isArray(ids)&&ids.length<=2&&new Set(ids).size===ids.length&&ids.every(id=>p.students.some(st=>st.id===id)),'请选择本组至多两位学生作者');
   const partner=!!payload.partner;check(!partner||Object.keys(s.players).length===2,'搭子尚未加入');
   p.paper.title=safe(payload.title)||title(p,'paper',p.papers+1,ids.length?p.students.find(x=>x.id===ids[0]):undefined,partner);p.paper.collaborators={studentIds:ids,partner};
@@ -96,6 +112,6 @@ function createPortfolio({C,log,progress,check,HOUR}){
   }else return false;
   return true;
  }
- return {migrate,initStudent,recordPaper,recordPatent,activity,settle,advance,assign,dispatch,name,title};
+ return {migrate,initStudent,finishTask,advancePoints,advanceContinuous,recordPaper,recordPatent,activity,settle,advance,assign,dispatch,name,title};
 }
 module.exports={createPortfolio};
